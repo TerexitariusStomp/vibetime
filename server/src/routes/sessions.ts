@@ -4,6 +4,7 @@ import { requireAuth } from '../auth-middleware.js';
 import { checkAndRecord } from '../ratelimit.js';
 import { scoreSession, clampBaseline, earnsEvents, type Stats } from '../score.js';
 import { commitKeyFor, COMMIT_KEY_VERSION } from '../commit-key.js';
+import { CLIENT_TUNABLES } from './config.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const VALID_TIERS = new Set(['shipped', 'progressed', 'tinkering', 'exploring', 'idle', 'interrupted']);
@@ -197,6 +198,34 @@ async function paidToTwin(env: Env, uid: number, session: IncomingSession, stats
   return twin !== null;
 }
 
+// For a submit without commit facts. Git checks a branch out in one place at a
+// time, so sessions running on the same branch are watching one checkout and
+// counting the same commits from different starting points; their numbers
+// differ, so paidToTwin never matches them. One session submits at most once
+// per in-progress interval, so if another live session on this branch was paid
+// within that interval, this one is counting work it already covered. A
+// session that started after the other ended took its baseline past that work
+// and is never held back.
+async function branchPaidRecently(env: Env, uid: number, session: IncomingSession): Promise<boolean> {
+  if (!session.branchHash) return false;
+  try {
+    const since = new Date(Date.now() - CLIENT_TUNABLES.inProgressSubmitIntervalMs).toISOString();
+    const latest = new Date(Math.max(Date.parse(session.endedAt), Date.now())).toISOString();
+    const other = await env.DB.prepare(
+      `SELECT 1 FROM sessions s
+        WHERE s.user_github_id = ? AND s.project_hash = ? AND s.branch_hash = ? AND s.id <> ?
+          AND s.last_ship_at >= ?
+          AND s.started_at <= ?
+          AND (CASE WHEN s.ended_at = s.started_at THEN s.submitted_at ELSE s.ended_at END) >= ?
+        LIMIT 1`,
+    ).bind(uid, session.projectHash, session.branchHash, session.id, since, latest, session.startedAt).first();
+    return other !== null;
+  } catch (e) {
+    console.warn(`branch check skipped: ${e instanceof Error ? e.message : String(e)}`);
+    return false;
+  }
+}
+
 // A 400 makes the CLI drop the session for good, so the reason is logged: it
 // is the only trace the rejection leaves.
 function rejected(reason: string, cliVersion: string | null): Response {
@@ -352,12 +381,14 @@ export async function submitSession(request: Request, env: Env): Promise<Respons
 
   // No per-user ceiling. What bounds this table: one row per (session, day),
   // event days never exceeding commits, earnsEvents on every day, the request
-  // limiter, and paidToTwin for submits that carry no commit facts.
+  // limiter, and paidToTwin and branchPaidRecently for submits that carry no
+  // commit facts.
   const bumpDay = claimedDays.filter((d) => d >= todayDay).sort().pop();
   const earns = newDays.length > 0
     ? earnsEvents(baseline, stats, newDays.length)
     : bumpDay !== undefined && earnsEvents(baseline, stats, 1);
-  const paidElsewhere = earns && !parsed.commitFacts && await paidToTwin(env, auth.sub, parsed, stats);
+  const paidElsewhere = earns && !parsed.commitFacts
+    && (await paidToTwin(env, auth.sub, parsed, stats) || await branchPaidRecently(env, auth.sub, parsed));
 
   let landed = 0;
   if (earns && !paidElsewhere) {
@@ -386,6 +417,14 @@ export async function submitSession(request: Request, env: Env): Promise<Respons
                            event_baseline_lines_removed = ?, event_baseline_files = ?
         WHERE id = ? AND user_github_id = ?`,
     ).bind(stats.commits, stats.linesAdded, stats.linesRemoved, stats.filesTouched, parsed.id, auth.sub).run();
+  }
+  if (landed > 0) {
+    try {
+      await env.DB.prepare(`UPDATE sessions SET last_ship_at = ? WHERE id = ? AND user_github_id = ?`)
+        .bind(submittedAt, parsed.id, auth.sub).run();
+    } catch (e) {
+      console.warn(`last_ship_at not recorded: ${e instanceof Error ? e.message : String(e)}`);
+    }
   }
 
   await env.DB.prepare(`UPDATE users SET last_seen_at = ? WHERE github_id = ?`).bind(submittedAt, auth.sub).run();

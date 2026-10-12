@@ -5,7 +5,7 @@ import { CLI_RECOMMENDED } from '../release.js';
 // this endpoint as an override, clamped to sane ranges on the client, so a
 // change here reaches installed CLIs without an npm release. Roughly 30% of
 // installs never update; this endpoint is the only lever we have for them.
-const CLIENT_TUNABLES = {
+export const CLIENT_TUNABLES = {
   // wrap.ts: how often the wrapper polls git state during a session
   pollIntervalMs: 30_000,
   // wrap.ts: how often an in-progress session resubmits to the server
