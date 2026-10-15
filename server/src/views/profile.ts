@@ -1,5 +1,5 @@
 import type { ProfileData, ProfileHeatmapDay } from '../routes/profile.js';
-import { BACK_STYLE, NAV_STYLE, escapeHtml, renderBack, renderNav, type BackLink, type NavContext } from './layout.js';
+import { BACK_STYLE, NAV_STYLE, crewInitials, crewShade, escapeHtml, renderBack, renderNav, type BackLink, type NavContext } from './layout.js';
 import type { Membership } from '../crews.js';
 
 function relativeTime(iso: string, now: Date): string {
@@ -80,7 +80,7 @@ const SHARED_STYLE = `
 
 export function renderProfile(data: ProfileData, updatedAt: Date, nav: NavContext, crews: Membership[], back: BackLink): string {
   const crewChips = crews.length === 0 ? '' : `<div class="chips">${crews.map((c) =>
-    `<a class="chip" href="/crew/${escapeHtml(c.slug)}"><span class="chip-mono" aria-hidden="true">${escapeHtml(c.name.split(/\s+/).map((w) => [...w][0] ?? '').join('').slice(0, 2).toUpperCase())}</span>${escapeHtml(c.name)}</a>`).join('')}</div>`;
+    `<a class="chip" href="/crew/${escapeHtml(c.slug)}"><span class="chip-mono" style="background:${crewShade(c.slug)}" aria-hidden="true">${escapeHtml(crewInitials(c.name))}</span>${escapeHtml(c.name)}</a>`).join('')}</div>`;
   const handle = escapeHtml(data.handle);
   const avatar = data.avatarUrl
     ? `<img src="${escapeHtml(data.avatarUrl)}" alt="" width="48" height="48" loading="lazy">`

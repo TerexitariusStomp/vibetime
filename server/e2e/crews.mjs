@@ -119,6 +119,8 @@ const code = inviteOf(slug);
   check('joining twice does not add a second membership', loc(twice) === `/crew/${slug}?m=already` && liveMembers(slug) === 2);
   const board = await (await anon.get('/crews')).text();
   const rankedRow = new RegExp(`<td class="rank[^"]*">\\d+</td>\\s*<td><a class="who" href="/crew/${slug}"`);
+  const row = (board.match(new RegExp(`<tr[^>]*>\\s*<td class="rank[^"]*">\\d+</td>\\s*<td><a class="who" href="/crew/${slug}"[\\s\\S]*?</tr>`)) ?? [''])[0];
+  check('a board row shows its members\' faces', (row.match(/class="face[ "]/g) ?? []).length === 2 && row.includes('class="faces"'), row.slice(0, 300));
   check('with two members the crew gets a rank number', rankedRow.test(board) && !new RegExp(`href="/crew/${slug}"[^<]*<[\\s\\S]{0,400}needs 1 more member`).test(board));
 }
 {
@@ -145,6 +147,8 @@ const code = inviteOf(slug);
   const all = await (await anon.get(`/crew/${slug}?window=all`)).text();
   check('ships from weeks before someone joined do not count, even all time', shipsOn(all) === 10, `got ${shipsOn(all)}`);
   const board = await (await anon.get('/crews')).text();
+  const topRow = (board.match(new RegExp(`href="/crew/${slug}"[\\s\\S]*?</tr>`)) ?? [''])[0];
+  check('the top shipper is shown with their face', topRow.includes(`class="top" href="/@${ada.handle}"`) && topRow.includes('top-face'), topRow.slice(-400));
   check('the board shows the same number as the crew page', new RegExp(`href="/crew/${slug}"[\\s\\S]*?<td class="ships">10<small>`).test(board));
 }
 {
