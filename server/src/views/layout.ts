@@ -13,6 +13,39 @@ export interface NavContext {
   path: string;
 }
 
+export interface BackLink {
+  href: string;
+  label: string;
+}
+
+// Pages people reach by clicking through get a way back to where they were.
+// Only this site's own pages count; anything else falls back to the fallback.
+export function backFrom(request: Request, fallback: BackLink): BackLink {
+  const referer = request.headers.get('referer');
+  if (!referer) return fallback;
+  let from: URL;
+  try { from = new URL(referer); } catch { return fallback; }
+  const here = new URL(request.url);
+  if (from.origin !== here.origin || from.pathname === here.pathname) return fallback;
+  const href = `${from.pathname}${from.search}`;
+  if (!/^[\x21-\x7e]+$/.test(href) || href.length > 300) return fallback;
+  if (from.pathname === '/leaderboard') return { href, label: 'leaderboard' };
+  if (from.pathname === '/crews') return { href, label: 'crews' };
+  if (/^\/crew\/[a-z0-9-]+$/.test(from.pathname)) return { href, label: 'back to the crew' };
+  const handle = /^\/@([A-Za-z0-9-]+)$/.exec(from.pathname);
+  if (handle) return { href, label: `@${handle[1]}` };
+  return fallback;
+}
+
+export const BACK_STYLE = `
+  .back { color: #666; font-size: 12px; display: inline-block; margin: -8px 0 20px; text-decoration: none; }
+  .back:hover { color: #a78bfa; }
+`;
+
+export function renderBack(back: BackLink): string {
+  return `<a class="back" href="${escapeHtml(back.href)}">← ${escapeHtml(back.label)}</a>`;
+}
+
 export const NAV_STYLE = `
   .nav { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 1px solid #1a1a1a; }
   .nav .brand { color: #a78bfa; font-weight: 600; letter-spacing: 0.5px; white-space: nowrap; text-decoration: none; }

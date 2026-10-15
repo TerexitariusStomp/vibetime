@@ -8,17 +8,19 @@ import {
 import {
   COPY_SCRIPT, MESSAGES, renderConfirm, renderCreate, renderCrew, renderCrewBoard, renderCrewMissing, renderInvite, renderInviteGone,
 } from '../views/crews.js';
-import { renderNotice, type NavContext } from '../views/layout.js';
+import { backFrom, renderNotice, type NavContext } from '../views/layout.js';
 import { currentViewer, pageCacheControl, signInEnabled, webOrigin, type Viewer } from '../web-session.js';
 import { sameOrigin } from './web-auth.js';
 
 const CSP = "default-src 'self'; img-src https://avatars.githubusercontent.com; style-src 'unsafe-inline'; base-uri 'self'; form-action 'self'";
 
-function page(body: string, viewer: Viewer | null, status = 200): Response {
+function page(body: string, viewer: Viewer | null, status = 200, byReferer = false): Response {
+  const cache = pageCacheControl(viewer);
   return html(body, {
     status,
     headers: {
-      ...pageCacheControl(viewer),
+      ...cache,
+      ...(byReferer ? { vary: 'cookie, referer' } : {}),
       'content-security-policy': CSP,
       'referrer-policy': 'strict-origin-when-cross-origin',
       'x-content-type-options': 'nosniff',
@@ -108,7 +110,7 @@ export async function crewHtml(request: Request, env: Env, slug: string): Promis
     viewer ? isMember(env, crew.id, viewer.githubId) : Promise.resolve(false),
   ]);
   const me = { member, owner: member && viewer?.githubId === crew.ownerGithubId };
-  return page(renderCrew(crew, members, window, windowStart(window), new Date(), rank, nav, me, knownMessage(url), webOrigin(env)), viewer);
+  return page(renderCrew(crew, members, window, windowStart(window), new Date(), rank, nav, me, knownMessage(url), webOrigin(env), backFrom(request, { href: '/crews', label: 'crews' })), viewer, 200, true);
 }
 
 export async function crewJoinPost(request: Request, env: Env, slug: string): Promise<Response> {

@@ -1,6 +1,7 @@
 import type { Env } from '../env.js';
 import { html } from '../http.js';
 import { currentViewer, pageCacheControl, signInEnabled } from '../web-session.js';
+import { backFrom } from '../views/layout.js';
 import { renderProfile, renderProfileNotFound } from '../views/profile.js';
 import { crewsOf } from '../crews.js';
 import { dayKey, startOfCalendarMonth, startOfCalendarWeek } from '../window.js';
@@ -156,11 +157,12 @@ const PAGE_HEADERS = {
 export async function profileHtml(request: Request, env: Env, handle: string): Promise<Response> {
   const [data, viewer] = await Promise.all([buildProfile(env, handle), currentViewer(request, env)]);
   const nav = { viewer, signInEnabled: signInEnabled(env), path: new URL(request.url).pathname };
-  const headers = { ...PAGE_HEADERS, ...pageCacheControl(viewer) };
+  const headers = { ...PAGE_HEADERS, ...pageCacheControl(viewer), 'vary': 'cookie, referer' };
+  const back = backFrom(request, { href: '/leaderboard', label: 'leaderboard' });
   if (!data) {
-    return html(renderProfileNotFound(handle, nav), { status: 404, headers });
+    return html(renderProfileNotFound(handle, nav, back), { status: 404, headers });
   }
   // A missing crews table must not take the profile down with it.
   const crews = await crewsOf(env, data.githubId).catch(() => []);
-  return html(renderProfile(data, new Date(), nav, crews), { headers });
+  return html(renderProfile(data, new Date(), nav, crews, back), { headers });
 }

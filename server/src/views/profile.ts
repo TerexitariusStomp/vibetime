@@ -1,5 +1,5 @@
 import type { ProfileData, ProfileHeatmapDay } from '../routes/profile.js';
-import { NAV_STYLE, escapeHtml, renderNav, type NavContext } from './layout.js';
+import { BACK_STYLE, NAV_STYLE, escapeHtml, renderBack, renderNav, type BackLink, type NavContext } from './layout.js';
 import type { Membership } from '../crews.js';
 
 function relativeTime(iso: string, now: Date): string {
@@ -70,6 +70,7 @@ const SHARED_STYLE = `
   .chip:hover { border-color: #a78bfa; color: #e5e5e5; }
   .chip-mono { width: 20px; height: 20px; border-radius: 999px; background: #a78bfa; color: #0a0a0a; font-size: 9px; font-weight: 700; display: inline-grid; place-items: center; }
   ${NAV_STYLE}
+  ${BACK_STYLE}
   @media (max-width: 480px) {
     body { padding: 20px 12px; }
     .stats { grid-template-columns: 1fr; }
@@ -77,7 +78,7 @@ const SHARED_STYLE = `
   }
 `;
 
-export function renderProfile(data: ProfileData, updatedAt: Date, nav: NavContext, crews: Membership[]): string {
+export function renderProfile(data: ProfileData, updatedAt: Date, nav: NavContext, crews: Membership[], back: BackLink): string {
   const crewChips = crews.length === 0 ? '' : `<div class="chips">${crews.map((c) =>
     `<a class="chip" href="/crew/${escapeHtml(c.slug)}"><span class="chip-mono" aria-hidden="true">${escapeHtml(c.name.split(/\s+/).map((w) => [...w][0] ?? '').join('').slice(0, 2).toUpperCase())}</span>${escapeHtml(c.name)}</a>`).join('')}</div>`;
   const handle = escapeHtml(data.handle);
@@ -112,6 +113,7 @@ export function renderProfile(data: ProfileData, updatedAt: Date, nav: NavContex
 <body>
 <main>
   ${renderNav(null, nav)}
+  ${renderBack(back)}
   <header>
     <div class="who">
       ${avatar}
@@ -137,7 +139,7 @@ export function renderProfile(data: ProfileData, updatedAt: Date, nav: NavContex
 </html>`;
 }
 
-export function renderProfileNotFound(handle: string, nav: NavContext): string {
+export function renderProfileNotFound(handle: string, nav: NavContext, back: BackLink): string {
   const safe = escapeHtml(handle);
   return `<!doctype html>
 <html lang="en">
@@ -155,6 +157,7 @@ export function renderProfileNotFound(handle: string, nav: NavContext): string {
 <body>
 <main>
   ${renderNav(null, nav)}
+  ${renderBack(back)}
   <div class="missing">
     <h1>@${safe}</h1>
     <p>no vibetime profile for this handle.</p>
