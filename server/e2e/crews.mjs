@@ -155,6 +155,15 @@ const code = inviteOf(slug);
   check('rejoining in the same week does not count anything twice', shipsOn(back) === 10 && liveMembers(slug) === 3, `got ${shipsOn(back)}`);
 }
 {
+  const outsider = await signIn('outsider');
+  const leavePage = await outsider.get(`/crew/${slug}/confirm?action=leave`);
+  check('someone outside the crew is not offered a leave button', leavePage.status === 303 && loc(leavePage) === `/crew/${slug}`, `${leavePage.status}`);
+  const upper = await anon.get(`/crew/${slug.toUpperCase()}`);
+  check('a crew address typed in capitals still finds the crew', upper.status === 301 && loc(upper) === `/crew/${slug}`, `${upper.status} ${loc(upper)}`);
+  const removeText = await (await ada.get(`/crew/${slug}/confirm?action=remove&member=${cy.id}`)).text();
+  check('the remove confirmation tells the truth about rejoining', removeText.includes('can rejoin with the invite link') && removeText.includes('open'), removeText.match(/<p class="facts"[^>]*>([^<]*)/)?.[1]);
+}
+{
   const ownerLeave = await ada.get(`/crew/${slug}/confirm?action=leave`);
   check('the owner is asked to hand over before leaving', (await ownerLeave.text()).includes('hand the crew over first'));
   const viaPost = await ada.post(`/crew/${slug}/leave`);

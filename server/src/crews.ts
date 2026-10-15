@@ -27,14 +27,21 @@ function sinceDay(window: CrewWindow): string {
 // A ship counts for a crew when it landed in a week the person was a member,
 // joining week and leaving week included. Weeks are whole so that joining on
 // a Friday still counts your Monday, and leaving never rewrites a week that
-// has already been shown. EXISTS rather than a join, so rejoining in the same
-// week cannot count a ship twice.
-const COUNTED = `EXISTS (
-  SELECT 1 FROM crew_members m
-  WHERE m.crew_id = c.id AND m.user_github_id = e.user_github_id
-    AND e.day >= date(m.joined_at, '-6 days', 'weekday 1')
-    AND (m.left_at IS NULL OR e.day < date(m.left_at, '-6 days', 'weekday 1', '+7 days'))
-)`;
+// has already been shown. Each span walks the (user, day) index, and DISTINCT
+// on the ship_events key keeps a same-week rejoin from counting a ship twice.
+function countedShips(crewFilter: string): string {
+  return `WITH spans AS (
+    SELECT m.crew_id, m.user_github_id,
+      date(m.joined_at, '-6 days', 'weekday 1') AS from_day,
+      CASE WHEN m.left_at IS NULL THEN '9999-12-31' ELSE date(m.left_at, '-6 days', 'weekday 1', '+7 days') END AS to_day
+    FROM crew_members m JOIN crews c ON c.id = m.crew_id
+    WHERE c.deleted_at IS NULL AND ${crewFilter}
+  ), counted AS (
+    SELECT DISTINCT sp.crew_id, e.user_github_id, e.session_id, e.day, e.ships
+    FROM spans sp JOIN ship_events e
+      ON e.user_github_id = sp.user_github_id AND e.day >= sp.from_day AND e.day < sp.to_day AND e.day >= ?
+  )`;
+}
 
 const LIVE_MEMBERSHIPS = `SELECT COUNT(*) FROM crew_members lm JOIN crews lc ON lc.id = lm.crew_id
   WHERE lm.user_github_id = ? AND lm.left_at IS NULL AND lc.deleted_at IS NULL`;
@@ -95,22 +102,39 @@ export interface BoardEntry {
 }
 
 export async function crewBoard(env: Env, window: CrewWindow): Promise<BoardEntry[]> {
-  const since = sinceDay(window);
-  const res = await env.DB.prepare(
-    `SELECT * FROM (
-       SELECT c.id, c.slug, c.name, c.open, c.created_at,
-         (SELECT COUNT(*) FROM crew_members m WHERE m.crew_id = c.id AND m.left_at IS NULL) AS member_count,
-         (SELECT COALESCE(SUM(e.ships), 0) FROM ship_events e WHERE e.day >= ?1 AND ${COUNTED}) AS ships,
-         (SELECT u.handle FROM ship_events e JOIN users u ON u.github_id = e.user_github_id
-            WHERE e.day >= ?1 AND ${COUNTED}
-            GROUP BY e.user_github_id ORDER BY SUM(e.ships) DESC LIMIT 1) AS top_handle
-       FROM crews c WHERE c.deleted_at IS NULL
-     ) WHERE member_count >= ${MIN_MEMBERS_TO_RANK}
-     ORDER BY ships DESC, created_at ASC
-     LIMIT 100`,
-  ).bind(since).all<{ slug: string; name: string; open: number; member_count: number; ships: number; top_handle: string | null }>();
-  return (res.results ?? []).map((r, i) => ({
-    rank: i + 1, slug: r.slug, name: r.name, open: r.open === 1, ships: r.ships, memberCount: r.member_count, topHandle: r.top_handle,
+  const [totals, crews] = await env.DB.batch([
+    env.DB.prepare(
+      `${countedShips('1 = 1')}
+       SELECT crew_id, user_github_id, SUM(ships) AS ships FROM counted GROUP BY crew_id, user_github_id`,
+    ).bind(sinceDay(window)),
+    env.DB.prepare(
+      `SELECT c.id, c.slug, c.name, c.open, c.created_at,
+         (SELECT COUNT(*) FROM crew_members m WHERE m.crew_id = c.id AND m.left_at IS NULL) AS member_count
+       FROM crews c WHERE c.deleted_at IS NULL`,
+    ),
+  ]);
+  const byCrew = new Map<number, { ships: number; topUser: number | null; topShips: number }>();
+  for (const r of (totals.results ?? []) as { crew_id: number; user_github_id: number; ships: number }[]) {
+    const t = byCrew.get(r.crew_id) ?? { ships: 0, topUser: null, topShips: -1 };
+    t.ships += r.ships;
+    if (r.ships > t.topShips) { t.topShips = r.ships; t.topUser = r.user_github_id; }
+    byCrew.set(r.crew_id, t);
+  }
+  const ranked = ((crews.results ?? []) as { id: number; slug: string; name: string; open: number; created_at: string; member_count: number }[])
+    .filter((c) => c.member_count >= MIN_MEMBERS_TO_RANK)
+    .map((c) => ({ ...c, ships: byCrew.get(c.id)?.ships ?? 0, topUser: byCrew.get(c.id)?.topUser ?? null }))
+    .sort((a, b) => b.ships - a.ships || a.created_at.localeCompare(b.created_at))
+    .slice(0, 100);
+  const topIds = [...new Set(ranked.map((c) => c.topUser).filter((u): u is number => u !== null))];
+  const handles = new Map<number, string>();
+  if (topIds.length) {
+    const res = await env.DB.prepare(`SELECT github_id, handle FROM users WHERE github_id IN (${topIds.map(() => '?').join(',')})`)
+      .bind(...topIds).all<{ github_id: number; handle: string }>();
+    for (const u of res.results ?? []) handles.set(u.github_id, u.handle);
+  }
+  return ranked.map((c, i) => ({
+    rank: i + 1, slug: c.slug, name: c.name, open: c.open === 1, ships: c.ships, memberCount: c.member_count,
+    topHandle: c.topUser === null ? null : handles.get(c.topUser) ?? null,
   }));
 }
 
@@ -128,17 +152,17 @@ export interface MemberEntry {
 // Former members stay listed for a window they contributed to, so the rows
 // always add up to the crew's number.
 export async function crewMembers(env: Env, crewId: number, window: CrewWindow): Promise<MemberEntry[]> {
-  const since = sinceDay(window);
   const res = await env.DB.prepare(
-    `SELECT u.github_id, u.handle, u.avatar_url,
-       (SELECT COALESCE(SUM(e.ships), 0) FROM ship_events e WHERE e.user_github_id = u.github_id AND e.day >= ?2 AND ${COUNTED}) AS ships,
-       (SELECT COUNT(DISTINCT e.day) FROM ship_events e WHERE e.user_github_id = u.github_id AND e.day >= ?2 AND ${COUNTED}) AS days,
+    `${countedShips('m.crew_id = ?')},
+     per_user AS (SELECT user_github_id, SUM(ships) AS ships, COUNT(DISTINCT day) AS days FROM counted GROUP BY user_github_id)
+     SELECT u.github_id, u.handle, u.avatar_url,
+       COALESCE(p.ships, 0) AS ships, COALESCE(p.days, 0) AS days,
        (SELECT MAX(s.ended_at) FROM ship_events e JOIN sessions s ON s.id = e.session_id WHERE e.user_github_id = u.github_id) AS last_shipped_at,
-       EXISTS (SELECT 1 FROM crew_members cm WHERE cm.crew_id = c.id AND cm.user_github_id = u.github_id AND cm.left_at IS NULL) AS current,
-       (SELECT MIN(cm.joined_at) FROM crew_members cm WHERE cm.crew_id = c.id AND cm.user_github_id = u.github_id) AS first_joined
-     FROM crews c JOIN users u ON u.github_id IN (SELECT user_github_id FROM crew_members WHERE crew_id = c.id)
-     WHERE c.id = ?1`,
-  ).bind(crewId, since).all<{ github_id: number; handle: string; avatar_url: string | null; ships: number; days: number; last_shipped_at: string | null; current: number; first_joined: string }>();
+       EXISTS (SELECT 1 FROM crew_members cm WHERE cm.crew_id = ? AND cm.user_github_id = u.github_id AND cm.left_at IS NULL) AS current,
+       (SELECT MIN(cm.joined_at) FROM crew_members cm WHERE cm.crew_id = ? AND cm.user_github_id = u.github_id) AS first_joined
+     FROM users u LEFT JOIN per_user p ON p.user_github_id = u.github_id
+     WHERE u.github_id IN (SELECT user_github_id FROM crew_members WHERE crew_id = ?)`,
+  ).bind(crewId, sinceDay(window), crewId, crewId, crewId).all<{ github_id: number; handle: string; avatar_url: string | null; ships: number; days: number; last_shipped_at: string | null; current: number; first_joined: string }>();
   const rows = (res.results ?? []).filter((r) => r.current === 1 || r.ships > 0);
   rows.sort((a, b) => b.ships - a.ships || a.first_joined.localeCompare(b.first_joined));
   if (rows.length === 0) return [];

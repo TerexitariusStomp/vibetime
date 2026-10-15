@@ -7,7 +7,7 @@ import { clientConfig } from './routes/config.js';
 import { githubCallback, githubStart, signOut } from './routes/web-auth.js';
 import {
   copyScript, createCrewPost, crewConfirmHtml, crewHtml, crewJoinPost, crewLeavePost, crewSettingsPost, crewsHtml,
-  invitePost, inviteHtml, newCrewHtml, parseCrewPath, parseInvitePath,
+  invitePost, inviteHtml, lowercaseCrewRedirect, newCrewHtml, parseCrewPath, parseInvitePath,
 } from './routes/crews.js';
 import { faviconResponse } from './views/favicon.js';
 import { error } from './http.js';
@@ -44,6 +44,8 @@ export default {
       const crewPath = parseCrewPath(url.pathname);
       if (crewPath) {
         const { slug, rest } = crewPath;
+        const lower = request.method === 'GET' ? lowercaseCrewRedirect(slug, rest, url.search) : null;
+        if (lower) return lower;
         if (request.method === 'GET' && rest === '') return await crewHtml(request, env, slug);
         if (request.method === 'GET' && rest === '/confirm') return await crewConfirmHtml(request, env, slug);
         if (request.method === 'POST' && rest === '/join') return await crewJoinPost(request, env, slug);

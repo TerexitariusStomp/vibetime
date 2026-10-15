@@ -135,6 +135,7 @@ export async function crewConfirmHtml(request: Request, env: Env, slug: string):
   if (!crew) return notFound(nav, viewer);
   const back = `/crew/${crew.slug}`;
   const action = url.searchParams.get('action') as ConfirmAction | null;
+  if (!(await isMember(env, crew.id, viewer.githubId))) return see(back);
   const owner = await ownerOr403(env, crew, viewer);
 
   if (action === 'delete' && owner) {
@@ -153,7 +154,9 @@ export async function crewConfirmHtml(request: Request, env: Env, slug: string):
     const memberId = Number(url.searchParams.get('member'));
     const target = (await crewMembers(env, crew.id, 'week')).find((m) => m.githubId === memberId && m.current);
     if (target && memberId !== viewer.githubId) {
-      return page(renderConfirm(nav, `remove ${target.handle}?`, 'weeks they were in keep their ships. they can rejoin only with a new invite, so reset the link if you need to.', `${back}/settings`, { action: 'remove', member: String(memberId) }, 'remove member', back), viewer);
+      return page(renderConfirm(nav, `remove ${target.handle}?`, crew.open
+        ? 'weeks they were in keep their ships. this crew is open, so they can rejoin with the invite link or from the crew page. make it invite only and reset the link to keep them out.'
+        : 'weeks they were in keep their ships. they can rejoin with the invite link, so reset it after removing them to keep them out.', `${back}/settings`, { action: 'remove', member: String(memberId) }, 'remove member', back), viewer);
     }
   }
   return see(back);
@@ -244,8 +247,14 @@ export async function invitePost(request: Request, env: Env, code: string): Prom
 }
 
 export function parseCrewPath(pathname: string): { slug: string; rest: string } | null {
-  const m = /^\/crew\/([a-z0-9][a-z0-9-]{0,39})(\/[a-z]+)?\/?$/.exec(pathname);
+  const m = /^\/crew\/([A-Za-z0-9][A-Za-z0-9-]{0,39})(\/[a-z]+)?\/?$/.exec(pathname);
   return m ? { slug: m[1], rest: m[2] ?? '' } : null;
+}
+
+// Slugs are lowercase, but people retype links from a crew name they saw.
+export function lowercaseCrewRedirect(slug: string, rest: string, search: string): Response | null {
+  if (slug === slug.toLowerCase()) return null;
+  return new Response(null, { status: 301, headers: { location: `/crew/${slug.toLowerCase()}${rest}${search}` } });
 }
 
 export function parseInvitePath(pathname: string): string | null {
