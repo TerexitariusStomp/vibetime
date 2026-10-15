@@ -1,6 +1,6 @@
-import type { BoardEntry, Crew, CrewWindow, MemberEntry } from '../crews.js';
+import type { BoardEntry, Crew, CrewWindow, Face, MemberEntry } from '../crews.js';
 import { MAX_CREWS_PER_USER, MAX_MEMBERS, MIN_MEMBERS_TO_RANK, NAME_MAX } from '../crews.js';
-import { BACK_STYLE, NAV_STYLE, escapeHtml, renderBack, renderNav, type BackLink, type NavContext, type NavPlace } from './layout.js';
+import { BACK_STYLE, NAV_STYLE, crewInitials, crewShade, escapeHtml, renderBack, renderNav, type BackLink, type NavContext, type NavPlace } from './layout.js';
 import { heatmapCells, relativeTime, windowRange } from './leaderboard.js';
 
 const WINDOW_LABEL: Record<CrewWindow, string> = { week: 'this week', month: 'this month', all: 'all time' };
@@ -29,9 +29,15 @@ function avatar(url: string | null, size: number): string {
     : `<span class="av av-empty" style="width:${size}px;height:${size}px" aria-hidden="true"></span>`;
 }
 
-function monogram(name: string, big = false): string {
-  const letters = name.split(/\s+/).map((w) => [...w][0] ?? '').join('').slice(0, 2).toUpperCase();
-  return `<span class="mono${big ? ' mono-xl' : ''}" aria-hidden="true">${escapeHtml(letters)}</span>`;
+function monogram(name: string, slug: string, big = false): string {
+  return `<span class="mono${big ? ' mono-xl' : ''}" style="background:${crewShade(slug)}" aria-hidden="true">${escapeHtml(crewInitials(name))}</span>`;
+}
+
+function face(f: Face, cls = 'face'): string {
+  const initial = escapeHtml(([...f.handle][0] ?? '?').toUpperCase());
+  return f.avatarUrl
+    ? `<img class="${cls}" src="${escapeHtml(f.avatarUrl)}" alt="" width="22" height="22" loading="lazy" title="${escapeHtml(f.handle)}">`
+    : `<span class="${cls} face-empty" style="background:${crewShade(f.handle)}" title="${escapeHtml(f.handle)}" aria-hidden="true">${initial}</span>`;
 }
 
 const STYLE = `
@@ -70,6 +76,13 @@ const STYLE = `
   .av-empty { background: #1a1a1a; }
   .mono { width: 36px; height: 36px; border-radius: 8px; display: inline-grid; place-items: center; font-weight: 700; font-size: 13px; color: #0a0a0a; background: #a78bfa; flex-shrink: 0; }
   .mono-xl { width: 56px; height: 56px; font-size: 20px; border-radius: 12px; }
+  .faces { display: inline-flex; align-items: center; }
+  .faces .face { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #0a0a0a; margin-left: -6px; display: inline-grid; place-items: center; font-size: 9px; font-weight: 700; color: #0a0a0a; }
+  .faces .face:first-child { margin-left: 0; }
+  .faces .more { color: #555; font-size: 11px; margin-left: 6px; }
+  .top { display: inline-flex; align-items: center; gap: 8px; color: #888; font-size: 13px; }
+  .top:hover { color: #a78bfa; }
+  .top-face { width: 22px; height: 22px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 9px; font-weight: 700; color: #0a0a0a; flex-shrink: 0; }
   .tag { font-size: 10px; color: #c4b5fd; border: 1px solid #3b2a5d; border-radius: 999px; padding: 0 6px; margin-left: 6px; white-space: nowrap; }
   .tag-open { color: #86efac; border-color: #1d3b27; }
   .tag-left { color: #888; border-color: #2a2a2a; }
@@ -185,9 +198,10 @@ export function renderCrewBoard(
       const yours = mine.has(c.slug);
       return `<tr${yours ? ' class="you"' : ''}>
         <td class="rank${c.rank !== null && c.rank <= 3 ? ' rank-top' : ''}">${c.rank ?? '–'}</td>
-        <td><a class="who" href="/crew/${escapeHtml(c.slug)}">${monogram(c.name)}<span style="min-width:0"><span class="nm">${escapeHtml(c.name)}</span>${yours ? '<span class="tag">your crew</span>' : c.open ? '<span class="tag tag-open">open</span>' : ''}<span class="meta">${c.memberCount} member${c.memberCount === 1 ? '' : 's'}${c.open ? '' : ' · invite only'}${c.rank === null ? ` · needs ${MIN_MEMBERS_TO_RANK - c.memberCount} more member${MIN_MEMBERS_TO_RANK - c.memberCount === 1 ? '' : 's'} to rank` : ''}</span></span></a></td>
+        <td><a class="who" href="/crew/${escapeHtml(c.slug)}">${monogram(c.name, c.slug)}<span style="min-width:0"><span class="nm">${escapeHtml(c.name)}</span>${yours ? '<span class="tag">your crew</span>' : c.open ? '<span class="tag tag-open">open</span>' : ''}<span class="meta">${c.memberCount} member${c.memberCount === 1 ? '' : 's'}${c.open ? '' : ' · invite only'}${c.rank === null ? ` · needs ${MIN_MEMBERS_TO_RANK - c.memberCount} more member${MIN_MEMBERS_TO_RANK - c.memberCount === 1 ? '' : 's'} to rank` : ''}</span></span></a></td>
         <td class="ships">${c.ships}<small>${Math.round(c.ships / Math.max(1, c.memberCount))} / member</small></td>
-        <td class="hide-sm" style="color:#888;font-size:12px">${c.topHandle ? `top: <a href="/@${escapeHtml(c.topHandle)}">${escapeHtml(c.topHandle)}</a>` : ''}</td>
+        <td class="hide-sm"><span class="faces">${c.faces.map((f) => face(f)).join('')}${c.memberCount > c.faces.length ? `<span class="more">+${c.memberCount - c.faces.length}</span>` : ''}</span></td>
+        <td class="hide-sm">${c.top ? `<a class="top" href="/@${escapeHtml(c.top.handle)}">${face(c.top, 'top-face')}<span class="nm">${escapeHtml(c.top.handle)}</span></a>` : ''}</td>
       </tr>`;
     }).join('');
   return page('crews · vibetime', 'crews', nav, `
@@ -200,7 +214,7 @@ export function renderCrewBoard(
   </div>
   ${tabs('/crews', window)}
   <table>
-    <thead><tr><th class="r">#</th><th>crew</th><th class="r">ships</th><th class="hide-sm">top shipper</th></tr></thead>
+    <thead><tr><th class="r">#</th><th>crew</th><th class="r">ships</th><th class="hide-sm">members</th><th class="hide-sm">top shipper</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>
   <footer>a crew's number is its members' verified ships, the same ones on the leaderboard, counted for every week they were in the crew. crews are ranked once they have ${MIN_MEMBERS_TO_RANK} members. open crews take anyone; the rest join by invite link.</footer>`);
@@ -280,7 +294,7 @@ export function renderCrew(
   ${renderBack(back)}
   ${note(message)}
   <div class="head">
-    <div class="who" style="gap:14px">${monogram(crew.name, true)}<div>
+    <div class="who" style="gap:14px">${monogram(crew.name, crew.slug, true)}<div>
       <h1 style="color:#e5e5e5;font-size:22px">${escapeHtml(crew.name)}${crew.open ? ' <span class="tag tag-open">open</span>' : ''}</h1>
       <p class="sub">${crew.memberCount} member${crew.memberCount === 1 ? '' : 's'} · started by <a href="/@${escapeHtml(crew.ownerHandle)}">@${escapeHtml(crew.ownerHandle)}</a>${rank ? ` · <span style="color:#c4b5fd">#${rank.rank} of ${rank.count} crews</span>` : ''}</p>
     </div></div>
@@ -319,7 +333,7 @@ vibe login</pre></div>`;
   return page(`join ${crew.name} · vibetime`, 'crews', nav, `
   <div class="card">
     <div class="invited">you're invited to join a crew on vibetime</div>
-    <div style="margin-top:16px">${monogram(crew.name, true)}</div>
+    <div style="margin-top:16px">${monogram(crew.name, crew.slug, true)}</div>
     <h2>${escapeHtml(crew.name)}</h2>
     <p class="facts">started by @${escapeHtml(crew.ownerHandle)}<br><strong>${crew.memberCount}</strong> member${crew.memberCount === 1 ? '' : 's'} · <strong>${weekShips}</strong> ships this week${rank ? ` · <strong>#${rank}</strong> of ${crewCount} crews` : ''}</p>
     ${avatars.length ? `<div class="stack">${avatars.map((a) => avatar(a, 22)).join('')}</div>` : ''}

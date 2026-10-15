@@ -1,5 +1,18 @@
 import type { Viewer } from '../web-session.js';
 
+// A crew keeps the same shade everywhere it appears, so it reads as one thing
+// across the board, its page, the invite and a profile.
+const CREW_SHADES = ['#a78bfa', '#c4b5fd', '#8b5cf6', '#d8b4fe', '#7c3aed', '#e9d5ff', '#9f7aea', '#b794f4'];
+export function crewShade(slug: string): string {
+  let n = 0;
+  for (const c of slug) n = (n * 31 + c.charCodeAt(0)) >>> 0;
+  return CREW_SHADES[n % CREW_SHADES.length];
+}
+
+export function crewInitials(name: string): string {
+  return name.split(/\s+/).map((w) => [...w][0] ?? '').join('').slice(0, 2).toUpperCase();
+}
+
 export function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }

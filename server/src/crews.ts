@@ -93,18 +93,24 @@ export async function crewByInvite(env: Env, code: string): Promise<Crew | null>
 
 // Every live crew is listed so a new one can be found and joined; only crews
 // with enough members to be a group get a rank number.
+export interface Face {
+  handle: string;
+  avatarUrl: string | null;
+}
+
 export interface BoardEntry {
+  faces: Face[];
+  top: Face | null;
   rank: number | null;
   slug: string;
   name: string;
   open: boolean;
   ships: number;
   memberCount: number;
-  topHandle: string | null;
 }
 
 export async function crewBoard(env: Env, window: CrewWindow): Promise<BoardEntry[]> {
-  const [totals, crews] = await env.DB.batch([
+  const [totals, crews, members] = await env.DB.batch([
     env.DB.prepare(
       `${countedShips('1 = 1')}
        SELECT crew_id, user_github_id, SUM(ships) AS ships FROM counted GROUP BY crew_id, user_github_id`,
@@ -114,7 +120,21 @@ export async function crewBoard(env: Env, window: CrewWindow): Promise<BoardEntr
          (SELECT COUNT(*) FROM crew_members m WHERE m.crew_id = c.id AND m.left_at IS NULL) AS member_count
        FROM crews c WHERE c.deleted_at IS NULL`,
     ),
+    env.DB.prepare(
+      `SELECT m.crew_id, u.github_id, u.handle, u.avatar_url
+       FROM crew_members m JOIN crews c ON c.id = m.crew_id JOIN users u ON u.github_id = m.user_github_id
+       WHERE m.left_at IS NULL AND c.deleted_at IS NULL ORDER BY m.joined_at`,
+    ),
   ]);
+  const people = new Map<number, Face>();
+  const facesByCrew = new Map<number, Face[]>();
+  for (const r of (members.results ?? []) as { crew_id: number; github_id: number; handle: string; avatar_url: string | null }[]) {
+    const face = { handle: r.handle, avatarUrl: r.avatar_url };
+    people.set(r.github_id, face);
+    const list = facesByCrew.get(r.crew_id) ?? [];
+    if (list.length < 4) list.push(face);
+    facesByCrew.set(r.crew_id, list);
+  }
   const byCrew = new Map<number, { ships: number; topUser: number | null; topShips: number }>();
   for (const r of (totals.results ?? []) as { crew_id: number; user_github_id: number; ships: number }[]) {
     const t = byCrew.get(r.crew_id) ?? { ships: 0, topUser: null, topShips: -1 };
@@ -130,16 +150,16 @@ export async function crewBoard(env: Env, window: CrewWindow): Promise<BoardEntr
     .sort((a, b) => Number(b.isRanked) - Number(a.isRanked)
       || (a.isRanked ? b.ships - a.ships || a.created_at.localeCompare(b.created_at) : b.created_at.localeCompare(a.created_at)))
     .slice(0, 200);
-  const topIds = [...new Set(ranked.map((c) => c.topUser).filter((u): u is number => u !== null))];
-  const handles = new Map<number, string>();
-  if (topIds.length) {
-    const res = await env.DB.prepare(`SELECT github_id, handle FROM users WHERE github_id IN (${topIds.map(() => '?').join(',')})`)
-      .bind(...topIds).all<{ github_id: number; handle: string }>();
-    for (const u of res.results ?? []) handles.set(u.github_id, u.handle);
+  const missing = [...new Set(ranked.map((c) => c.topUser).filter((u): u is number => u !== null && !people.has(u)))];
+  if (missing.length) {
+    const res = await env.DB.prepare(`SELECT github_id, handle, avatar_url FROM users WHERE github_id IN (${missing.map(() => '?').join(',')})`)
+      .bind(...missing).all<{ github_id: number; handle: string; avatar_url: string | null }>();
+    for (const u of res.results ?? []) people.set(u.github_id, { handle: u.handle, avatarUrl: u.avatar_url });
   }
   return ranked.map((c, i) => ({
     rank: c.isRanked ? i + 1 : null, slug: c.slug, name: c.name, open: c.open === 1, ships: c.ships, memberCount: c.member_count,
-    topHandle: c.topUser === null ? null : handles.get(c.topUser) ?? null,
+    faces: facesByCrew.get(c.id) ?? [],
+    top: c.topUser === null ? null : people.get(c.topUser) ?? null,
   }));
 }
 
