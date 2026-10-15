@@ -45,6 +45,37 @@ const out = execFileSync('npx', ['wrangler', 'd1', 'execute', 'vibetime', '--rem
 });
 const rows = JSON.parse(out)[0].results;
 
+// Same counting as countedShips in server/src/crews.ts: a ship counts in any
+// week its author was a member, joining and leaving weeks included, and
+// DISTINCT on the ship_events key stops a same-week rejoin counting twice.
+// A crew needs two members in the week to be ranked, as on /crews.
+const crewSql = `WITH spans AS (
+    SELECT m.crew_id, m.user_github_id,
+      date(m.joined_at, '-6 days', 'weekday 1') AS from_day,
+      CASE WHEN m.left_at IS NULL THEN '9999-12-31' ELSE date(m.left_at, '-6 days', 'weekday 1', '+7 days') END AS to_day
+    FROM crew_members m JOIN crews c ON c.id = m.crew_id
+    WHERE c.deleted_at IS NULL
+  ), counted AS (
+    SELECT DISTINCT sp.crew_id, e.user_github_id, e.session_id, e.day, e.ships
+    FROM spans sp JOIN ship_events e
+      ON e.user_github_id = sp.user_github_id AND e.day >= sp.from_day AND e.day < sp.to_day
+     AND e.day >= '${day(start)}' AND e.day <= '${day(end)}'
+  )
+  SELECT c.slug, c.name,
+    (SELECT COUNT(*) FROM spans sp WHERE sp.crew_id = c.id AND sp.from_day <= '${day(end)}' AND sp.to_day > '${day(start)}') AS members,
+    (SELECT COALESCE(SUM(ships), 0) FROM counted WHERE crew_id = c.id) AS ships
+  FROM crews c WHERE c.deleted_at IS NULL
+  ORDER BY ships DESC, c.created_at ASC`;
+let topCrew = null;
+try {
+  const crewOut = execFileSync('npx', ['wrangler', 'd1', 'execute', 'vibetime', '--remote', '--json', '--command', crewSql], {
+    cwd: serverDir, encoding: 'utf8',
+  });
+  topCrew = JSON.parse(crewOut)[0].results.find((c) => c.members >= 2 && c.ships > 0) ?? null;
+} catch (e) {
+  console.error(`  (top crew skipped: ${e instanceof Error ? e.message.split('\n')[0] : e})`);
+}
+
 const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 const label = (d) => `${months[d.getUTCMonth()]} ${d.getUTCDate()}`;
 const range = `${label(start)} – ${label(end)}`;
@@ -57,12 +88,27 @@ if (rows.length === 0) {
 }
 const pad = Math.max(...rows.map((r) => r.handle.length));
 rows.forEach((r, i) => console.log(`  ${medals[i]} @${r.handle.padEnd(pad)}  ${r.ships} ship${r.ships === 1 ? '' : 's'}`));
+if (topCrew) console.log(`\n  top crew: ${topCrew.name} · ${topCrew.ships} ships · ${topCrew.members} members`);
 
 console.log('\n  ── paste ─────────────────────────────\n');
 console.log(`weekly top shippers on vibetime, ${range}\n`);
 rows.forEach((r, i) => console.log(`${medals[i]} ${r.handle} · ${r.ships} ship${r.ships === 1 ? '' : 's'}`));
+if (topCrew) console.log(`\ntop crew: ${topCrew.name} · ${topCrew.ships} ships`);
 console.log(`\nvibetime.club/leaderboard`);
+if (topCrew) console.log(`start a crew: vibetime.club/crews`);
 console.log();
+
+// While the week is running, the live /crews board must agree with this
+// script. A mismatch means the two copies of the counting rule drifted.
+if (current && topCrew) {
+  try {
+    const board = execFileSync('curl', ['-s', `https://vibetime.club/crews?v=${Date.now()}`], { encoding: 'utf8' });
+    const live = new RegExp(`href="/crew/${topCrew.slug}"[\\s\\S]*?<td class="ships">(\\d+)<`).exec(board)?.[1];
+    if (live !== undefined && Number(live) !== topCrew.ships) {
+      console.error(`  ! top crew mismatch: this script says ${topCrew.ships}, vibetime.club/crews says ${live}\n`);
+    }
+  } catch { /* offline: nothing to compare against */ }
+}
 
 if (wantHtml) {
   // Same visual family as the vibe share card, staged for Twitter: near-16:9
@@ -104,7 +150,8 @@ if (wantHtml) {
   </div>
   ${winnerBlock}
   ${runnersBlock}
-  <div style="color:#555;font-size:13px;margin-top:36px;text-align:center;">vibetime.club/leaderboard</div>
+  ${topCrew ? `<div style="display:flex;justify-content:center;align-items:center;gap:10px;margin-top:28px;color:#888;font-size:15px;"><span style="color:#555;">top crew</span><span style="color:#e5e5e5;">${topCrew.name.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]))}</span><span style="color:#a78bfa;font-weight:600;">${topCrew.ships}</span><span style="color:#666;font-size:12px;">ships</span></div>` : ''}
+  <div style="color:#555;font-size:13px;margin-top:${topCrew ? 18 : 36}px;text-align:center;">vibetime.club/leaderboard</div>
 </div>
 </body></html>`;
 
