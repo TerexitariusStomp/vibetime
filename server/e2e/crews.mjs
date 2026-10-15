@@ -250,6 +250,27 @@ const dee = await signIn('dee');
   check('an unknown crew is a 404 page, not an error', nope.status === 404);
 }
 
+{
+  const backOf = async (path, referer) => {
+    const res = await req(path, referer ? { headers: { referer } } : {});
+    const m = /<a class="back" href="([^"]*)">← ([^<]*)<\/a>/.exec(await res.text());
+    return { href: m?.[1].replace(/&amp;/g, '&'), label: m?.[2], vary: res.headers.get('vary') };
+  };
+  const p = `/@${ada.handle}`;
+  const plain = await backOf(p);
+  check('a profile opened directly offers a way back to the leaderboard', plain.href === '/leaderboard' && plain.label === 'leaderboard', JSON.stringify(plain));
+  const fromMonth = await backOf(p, `${BASE}/leaderboard?window=month`);
+  check('from the leaderboard, back keeps the tab you were on', fromMonth.href === '/leaderboard?window=month' && fromMonth.vary?.includes('referer'), JSON.stringify(fromMonth));
+  const fromCrew = await backOf(p, `${BASE}/crew/${slug}`);
+  check('from a crew, back returns to that crew', fromCrew.href === `/crew/${slug}` && fromCrew.label === 'back to the crew', JSON.stringify(fromCrew));
+  const fromElsewhere = await backOf(p, 'https://evil.example/leaderboard');
+  check('a link from another site never becomes the back link', fromElsewhere.href === '/leaderboard', JSON.stringify(fromElsewhere));
+  const crewPlain = await backOf(`/crew/${slug}`);
+  const crewFromProfile = await backOf(`/crew/${slug}`, `${BASE}${p}`);
+  check('a crew page goes back to crews, or to the profile you came from',
+    crewPlain.href === '/crews' && crewFromProfile.href === p && crewFromProfile.label === `@${ada.handle}`, JSON.stringify([crewPlain, crewFromProfile]));
+}
+
 github.close();
 console.log(failed === 0 ? '\nall passed' : `\n${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);

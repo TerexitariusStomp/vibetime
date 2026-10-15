@@ -1,6 +1,6 @@
 import type { BoardEntry, Crew, CrewWindow, MemberEntry } from '../crews.js';
 import { MAX_CREWS_PER_USER, MAX_MEMBERS, MIN_MEMBERS_TO_RANK, NAME_MAX } from '../crews.js';
-import { NAV_STYLE, escapeHtml, renderNav, type NavContext, type NavPlace } from './layout.js';
+import { BACK_STYLE, NAV_STYLE, escapeHtml, renderBack, renderNav, type BackLink, type NavContext, type NavPlace } from './layout.js';
 import { heatmapCells, relativeTime, windowRange } from './leaderboard.js';
 
 const WINDOW_LABEL: Record<CrewWindow, string> = { week: 'this week', month: 'this month', all: 'all time' };
@@ -120,6 +120,7 @@ const STYLE = `
   .empty { text-align: center; color: #666; padding: 32px 12px; }
   footer { color: #444; font-size: 11px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #141414; }
   ${NAV_STYLE}
+  ${BACK_STYLE}
   @media (max-width: 600px) {
     body { padding: 20px 12px; }
     td, th { padding-left: 4px; padding-right: 4px; }
@@ -212,7 +213,7 @@ export interface CrewViewerState {
 export function renderCrew(
   crew: Crew, members: MemberEntry[], window: CrewWindow, start: Date | null, now: Date,
   rank: { rank: number; above: BoardEntry | null; count: number } | null,
-  nav: NavContext, me: CrewViewerState, message: string | null, origin: string,
+  nav: NavContext, me: CrewViewerState, message: string | null, origin: string, back: BackLink,
 ): string {
   const ships = members.reduce((a, m) => a + m.ships, 0);
   const shipping = members.filter((m) => m.current && m.ships > 0).length;
@@ -275,6 +276,7 @@ export function renderCrew(
   <div class="tools"><div class="row"><a class="btn btn-danger" href="${base}/confirm?action=leave">leave crew</a></div></div>` : '';
 
   return page(`${crew.name} · vibetime crews`, 'crews', nav, `
+  ${renderBack(back)}
   ${note(message)}
   <div class="head">
     <div class="who" style="gap:14px">${monogram(crew.name, true)}<div>
