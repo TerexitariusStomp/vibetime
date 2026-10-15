@@ -94,7 +94,7 @@ export async function createCrewPost(request: Request, env: Env): Promise<Respon
 }
 
 async function crewRank(env: Env, slug: string, window: ReturnType<typeof parseCrewWindow>) {
-  const board = await crewBoard(env, window);
+  const board = (await crewBoard(env, window)).filter((b) => b.rank !== null);
   const i = board.findIndex((b) => b.slug === slug);
   return i === -1 ? null : { rank: i + 1, above: i > 0 ? board[i - 1] : null, count: board.length };
 }
@@ -230,7 +230,8 @@ export async function inviteHtml(request: Request, env: Env, code: string): Prom
   if (!crew) return page(renderInviteGone(nav), viewer, 404);
   const state = await inviteState(env, crew, viewer);
   if (state === 'member') return see(`/crew/${crew.slug}?m=already`);
-  const [members, board] = await Promise.all([crewMembers(env, crew.id, 'week'), crewBoard(env, 'week')]);
+  const [members, fullBoard] = await Promise.all([crewMembers(env, crew.id, 'week'), crewBoard(env, 'week')]);
+  const board = fullBoard.filter((b) => b.rank !== null);
   const i = board.findIndex((b) => b.slug === crew.slug);
   const avatars = members.filter((m) => m.current).slice(0, 8).map((m) => m.avatarUrl);
   return page(renderInvite(crew, members.reduce((a, m) => a + m.ships, 0), i === -1 ? null : i + 1, board.length, avatars, nav, state, code), viewer);

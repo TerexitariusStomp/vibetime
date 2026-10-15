@@ -175,16 +175,17 @@ export function renderCrewBoard(
   board: BoardEntry[], window: CrewWindow, start: Date | null, now: Date, nav: NavContext, mine: Set<string>,
 ): string {
   const total = board.reduce((a, b) => a + b.ships, 0);
+  const rankedCount = board.filter((c) => c.rank !== null).length;
   const start_ = nav.viewer
     ? `<a class="btn btn-primary" href="/crews/new">+ start a crew</a>`
     : nav.signInEnabled ? `<a class="btn btn-primary" href="/auth/github/start?next=%2Fcrews%2Fnew">+ start a crew</a>` : '';
   const rows = board.length === 0
-    ? `<tr><td colspan="5" class="empty">no crews on the board yet. a crew shows here once it has ${MIN_MEMBERS_TO_RANK} members.</td></tr>`
+    ? `<tr><td colspan="5" class="empty">no crews yet. start one and send the link to your people.</td></tr>`
     : board.map((c) => {
       const yours = mine.has(c.slug);
       return `<tr${yours ? ' class="you"' : ''}>
-        <td class="rank${c.rank <= 3 ? ' rank-top' : ''}">${c.rank}</td>
-        <td><a class="who" href="/crew/${escapeHtml(c.slug)}">${monogram(c.name)}<span style="min-width:0"><span class="nm">${escapeHtml(c.name)}</span>${yours ? '<span class="tag">your crew</span>' : c.open ? '<span class="tag tag-open">open</span>' : ''}<span class="meta">${c.memberCount} members${c.open ? '' : ' · invite only'}</span></span></a></td>
+        <td class="rank${c.rank !== null && c.rank <= 3 ? ' rank-top' : ''}">${c.rank ?? '–'}</td>
+        <td><a class="who" href="/crew/${escapeHtml(c.slug)}">${monogram(c.name)}<span style="min-width:0"><span class="nm">${escapeHtml(c.name)}</span>${yours ? '<span class="tag">your crew</span>' : c.open ? '<span class="tag tag-open">open</span>' : ''}<span class="meta">${c.memberCount} member${c.memberCount === 1 ? '' : 's'}${c.open ? '' : ' · invite only'}${c.rank === null ? ` · needs ${MIN_MEMBERS_TO_RANK - c.memberCount} more member${MIN_MEMBERS_TO_RANK - c.memberCount === 1 ? '' : 's'} to rank` : ''}</span></span></a></td>
         <td class="ships">${c.ships}<small>${Math.round(c.ships / Math.max(1, c.memberCount))} / member</small></td>
         <td class="hide-sm" style="color:#888;font-size:12px">${c.topHandle ? `top: <a href="/@${escapeHtml(c.topHandle)}">${escapeHtml(c.topHandle)}</a>` : ''}</td>
       </tr>`;
@@ -193,7 +194,7 @@ export function renderCrewBoard(
   <div class="head">
     <div>
       <h1>crews</h1>
-      <p class="scale"><strong>${board.length}</strong> crew${board.length === 1 ? '' : 's'} · <strong>${total}</strong> ships ${WINDOW_LABEL[window]}${rangeLabel(window, start, now)}</p>
+      <p class="scale"><strong>${board.length}</strong> crew${board.length === 1 ? '' : 's'}${rankedCount < board.length ? ` · <strong>${rankedCount}</strong> ranked` : ''} · <strong>${total}</strong> ships ${WINDOW_LABEL[window]}${rangeLabel(window, start, now)}</p>
     </div>
     ${start_}
   </div>
@@ -202,7 +203,7 @@ export function renderCrewBoard(
     <thead><tr><th class="r">#</th><th>crew</th><th class="r">ships</th><th class="hide-sm">top shipper</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>
-  <footer>a crew's number is its members' verified ships, the same ones on the leaderboard, counted for every week they were in the crew. open crews take anyone; the rest join by invite link.</footer>`);
+  <footer>a crew's number is its members' verified ships, the same ones on the leaderboard, counted for every week they were in the crew. crews are ranked once they have ${MIN_MEMBERS_TO_RANK} members. open crews take anyone; the rest join by invite link.</footer>`);
 }
 
 export interface CrewViewerState {

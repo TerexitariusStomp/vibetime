@@ -91,8 +91,10 @@ export async function crewByInvite(env: Env, code: string): Promise<Crew | null>
   return r ? toCrew(r) : null;
 }
 
+// Every live crew is listed so a new one can be found and joined; only crews
+// with enough members to be a group get a rank number.
 export interface BoardEntry {
-  rank: number;
+  rank: number | null;
   slug: string;
   name: string;
   open: boolean;
@@ -121,10 +123,13 @@ export async function crewBoard(env: Env, window: CrewWindow): Promise<BoardEntr
     byCrew.set(r.crew_id, t);
   }
   const ranked = ((crews.results ?? []) as { id: number; slug: string; name: string; open: number; created_at: string; member_count: number }[])
-    .filter((c) => c.member_count >= MIN_MEMBERS_TO_RANK)
-    .map((c) => ({ ...c, ships: byCrew.get(c.id)?.ships ?? 0, topUser: byCrew.get(c.id)?.topUser ?? null }))
-    .sort((a, b) => b.ships - a.ships || a.created_at.localeCompare(b.created_at))
-    .slice(0, 100);
+    .filter((c) => c.member_count > 0)
+    .map((c) => ({ ...c, ships: byCrew.get(c.id)?.ships ?? 0, topUser: byCrew.get(c.id)?.topUser ?? null, isRanked: c.member_count >= MIN_MEMBERS_TO_RANK }))
+    // Ranked crews by ships; the rest newest first, so a crew someone just
+    // started is near the top of its section instead of under every older one.
+    .sort((a, b) => Number(b.isRanked) - Number(a.isRanked)
+      || (a.isRanked ? b.ships - a.ships || a.created_at.localeCompare(b.created_at) : b.created_at.localeCompare(a.created_at)))
+    .slice(0, 200);
   const topIds = [...new Set(ranked.map((c) => c.topUser).filter((u): u is number => u !== null))];
   const handles = new Map<number, string>();
   if (topIds.length) {
@@ -133,7 +138,7 @@ export async function crewBoard(env: Env, window: CrewWindow): Promise<BoardEntr
     for (const u of res.results ?? []) handles.set(u.github_id, u.handle);
   }
   return ranked.map((c, i) => ({
-    rank: i + 1, slug: c.slug, name: c.name, open: c.open === 1, ships: c.ships, memberCount: c.member_count,
+    rank: c.isRanked ? i + 1 : null, slug: c.slug, name: c.name, open: c.open === 1, ships: c.ships, memberCount: c.member_count,
     topHandle: c.topUser === null ? null : handles.get(c.topUser) ?? null,
   }));
 }
