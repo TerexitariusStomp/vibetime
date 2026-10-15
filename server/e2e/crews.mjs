@@ -277,6 +277,35 @@ const dee = await signIn('dee');
     crewPlain.href === '/crews' && crewFromProfile.href === p && crewFromProfile.label === `@${ada.handle}`, JSON.stringify([crewPlain, crewFromProfile]));
 }
 
+{
+  // The spec's growth loop: someone who signs in on the web but has never run
+  // the CLI must be told how to make their ships count.
+  const owner = await signIn('specowner');
+  const fresh = await signIn('specfresh');
+  const veteran = await signIn('specveteran');
+  d1(`INSERT INTO sessions (id, user_github_id, tool, project_hash, started_at, ended_at, duration_seconds, commits, lines_added, lines_removed, files_touched, momentum, submitted_at)
+      VALUES ('${randomUUID()}', ${veteran.id}, 'claude', 'p', '2026-10-01T00:00:00Z', '2026-10-01T01:00:00Z', 3600, 1, 60, 0, 1, 'shipped', '2026-10-01T01:00:00Z')`);
+  const s2 = loc(await owner.post('/crews', { name: `spec check ${run}` })).split('?')[0].slice('/crew/'.length);
+  ships(owner, today, 4);
+  await owner.post(`/crew/${s2}/settings`, { action: 'open' });
+  const code2 = inviteOf(s2);
+  const invFresh = await (await fresh.get(`/join/${code2}`)).text();
+  const invVet = await (await veteran.get(`/join/${code2}`)).text();
+  check('signed in, the invite says how many of your 3 crews you are in', invFresh.includes('you are in 0 of 3 crews'), invFresh.match(/signed in as[^<]*/)?.[0]);
+  check('signed in without ever running the CLI, the invite still shows the install lines',
+    invFresh.includes('npm i -g vibetime-cli@latest') && !invVet.includes('npm i -g vibetime-cli@latest'));
+  await fresh.post(`/join/${code2}`);
+  await veteran.post(`/join/${code2}`);
+  const crewFresh = await (await fresh.get(`/crew/${s2}`)).text();
+  const crewVet = await (await veteran.get(`/crew/${s2}`)).text();
+  check('a member who has never run the CLI sees the install lines on the crew page', crewFresh.includes('npm i -g vibetime-cli@latest') && !crewVet.includes('npm i -g vibetime-cli@latest'));
+  const prof = await (await anon.get(`/@${owner.handle}`)).text();
+  const chips = prof.match(/<div class="chips">[\s\S]*?<\/div>/)?.[0] ?? '';
+  check('profile chips show the crew\'s rank this week', /#\d+/.test(chips), chips.slice(0, 200));
+  const form = await (await owner.get('/crews/new')).text();
+  check('the create form shows the address the crew will get', form.includes('id="slug-preview"') && form.includes('127.0.0.1:' + port + '/crew/…'));
+}
+
 github.close();
 console.log(failed === 0 ? '\nall passed' : `\n${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);
