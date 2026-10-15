@@ -250,6 +250,7 @@ const dee = await signIn('dee');
 {
   const lb = await (await anon.get('/leaderboard')).text();
   check('the leaderboard bar links to crews', lb.includes('href="/crews"'));
+  check('the leaderboard tells people crews exist, with a link to them', /<a class="callout" href="\/crews">[\s\S]*?crews[\s\S]*?<\/a>/.test(lb));
   const js = await anon.get('/assets/copy.js');
   check('the copy script is served as JavaScript from the site itself', js.status === 200 && js.headers.get('content-type').startsWith('text/javascript'));
   const src = /<script src="([^"]+)"/.exec(await (await anon.get('/crews')).text())?.[1] ?? '';
