@@ -133,6 +133,10 @@ vibe login</pre>
   footer .definition { margin-bottom: 8px; }
   footer a { color: #666; }
   .links a, .links code { white-space: nowrap; }
+  .callout { display: flex; align-items: center; gap: 10px; margin: 18px 0 0; padding: 10px 12px; border: 1px solid #3b2a5d; border-radius: 8px; background: #120d1c; color: #c4b5fd; font-size: 13px; text-decoration: none; }
+  .callout:hover { border-color: #a78bfa; color: #e5e5e5; }
+  .callout-new { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: #0a0a0a; background: #a78bfa; border-radius: 999px; padding: 1px 7px; font-weight: 600; flex-shrink: 0; }
+  .callout-go { margin-left: auto; color: #a78bfa; }
   ${NAV_STYLE}
   @media (max-width: 600px) {
     body { padding: 20px 12px; }
@@ -156,6 +160,7 @@ vibe login</pre>
     ${scaleLine}
     <p class="sub">updated ${updatedAt.toISOString().slice(0, 16).replace('T', ' ')}Z</p>
   </header>
+  <a class="callout" href="/crews"><span class="callout-new">new</span><span>crews: start one with your people and compete as a group</span><span class="callout-go" aria-hidden="true">→</span></a>
   <nav class="tabs">
     ${tab('this week', 'week', window)}
     ${tab('this month', 'month', window)}
