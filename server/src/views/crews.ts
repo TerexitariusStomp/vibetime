@@ -156,7 +156,7 @@ function page(title: string, place: NavPlace, nav: NavContext, body: string): st
 <title>${escapeHtml(title)}</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <style>${STYLE}</style>
-<script src="/assets/copy.js" defer></script>
+<script src="${COPY_SCRIPT_URL}" defer></script>
 </head>
 <body>
 <main>
@@ -410,3 +410,12 @@ document.addEventListener('click', function (e) {
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
 });
 `;
+
+// The URL carries a fingerprint of the script, so a browser holding the old
+// copy fetches the new one the moment it changes instead of an hour later.
+function fingerprint(text: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193) >>> 0;
+  return h.toString(36);
+}
+export const COPY_SCRIPT_URL = `/assets/copy.js?v=${fingerprint(COPY_SCRIPT)}`;
