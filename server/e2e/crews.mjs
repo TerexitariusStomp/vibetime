@@ -92,7 +92,8 @@ const slug = `lagos-crew-${run}`;
   check('the owner sees the invite link and owner tools, and the crew starts invite only',
     page.includes(`/join/${inviteOf(slug)}`) && page.includes('open to anyone') && page.includes('delete crew') && !page.includes('<span class="tag tag-open">'));
   const board = await (await anon.get('/crews')).text();
-  check('a crew of one is not on the board yet', !board.includes(slug));
+  const soloRow = new RegExp(`<td class="rank">–</td>\\s*<td><a class="who" href="/crew/${slug}"[\\s\\S]*?needs 1 more member to rank`);
+  check('a crew of one is listed on the board, unranked, saying what it needs', soloRow.test(board));
   const dup = await bo.post('/crews', { name: crewName });
   check('the same name again gets its own address', dup.status === 303 && loc(dup).startsWith(`/crew/${slug}-`) && loc(dup) !== `/crew/${slug}?m=created`, loc(dup));
   const reserved = await bo.post('/crews', { name: 'new' });
@@ -117,7 +118,8 @@ const code = inviteOf(slug);
   const twice = await bo.post(`/join/${code}`);
   check('joining twice does not add a second membership', loc(twice) === `/crew/${slug}?m=already` && liveMembers(slug) === 2);
   const board = await (await anon.get('/crews')).text();
-  check('with two members the crew is on the board', board.includes(`href="/crew/${slug}"`));
+  const rankedRow = new RegExp(`<td class="rank[^"]*">\\d+</td>\\s*<td><a class="who" href="/crew/${slug}"`);
+  check('with two members the crew gets a rank number', rankedRow.test(board) && !new RegExp(`href="/crew/${slug}"[^<]*<[\\s\\S]{0,400}needs 1 more member`).test(board));
 }
 {
   const direct = await cy.post(`/crew/${slug}/join`);
