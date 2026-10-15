@@ -20,7 +20,7 @@ function cliSupportsRefresh(request: Request): boolean {
   return major > 0 || minor >= 7;
 }
 
-async function sha256Hex(value: string): Promise<string> {
+export async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
@@ -31,10 +31,28 @@ function newRefreshToken(): string {
   return b64url(bytes);
 }
 
-interface GithubUser {
+export interface GithubUser {
   id: number;
   login: string;
   avatar_url: string;
+}
+
+// The CLI login and the web sign-in both end here, so a user row looks the
+// same however someone first arrived.
+export async function upsertGithubUser(env: Env, gh: { id: number; login: string; avatar_url?: unknown }): Promise<string | null> {
+  // only trust avatar URLs that come from GitHub's CDN — defense against future schema drift
+  const avatarUrl = typeof gh.avatar_url === 'string' && /^https:\/\/avatars\.githubusercontent\.com\//.test(gh.avatar_url)
+    ? gh.avatar_url
+    : null;
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO users (github_id, handle, avatar_url, created_at, last_seen_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(github_id) DO UPDATE SET handle = excluded.handle,
+                                          avatar_url = excluded.avatar_url,
+                                          last_seen_at = excluded.last_seen_at`,
+  ).bind(gh.id, gh.login, avatarUrl, now, now).run();
+  return avatarUrl;
 }
 
 export async function exchangeAuth(request: Request, env: Env): Promise<Response> {
@@ -58,19 +76,8 @@ export async function exchangeAuth(request: Request, env: Env): Promise<Response
   const gh = (await ghRes.json()) as Partial<GithubUser>;
   if (typeof gh.id !== 'number' || typeof gh.login !== 'string') return error(502, 'unexpected github response');
 
-  // only trust avatar URLs that come from GitHub's CDN — defense against future schema drift
-  const avatarUrl = typeof gh.avatar_url === 'string' && /^https:\/\/avatars\.githubusercontent\.com\//.test(gh.avatar_url)
-    ? gh.avatar_url
-    : null;
-
+  const avatarUrl = await upsertGithubUser(env, { id: gh.id, login: gh.login, avatar_url: gh.avatar_url });
   const now = new Date().toISOString();
-  await env.DB.prepare(
-    `INSERT INTO users (github_id, handle, avatar_url, created_at, last_seen_at)
-     VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(github_id) DO UPDATE SET handle = excluded.handle,
-                                          avatar_url = excluded.avatar_url,
-                                          last_seen_at = excluded.last_seen_at`,
-  ).bind(gh.id, gh.login, avatarUrl, now, now).run();
 
   const iat = Math.floor(Date.now() / 1000);
 

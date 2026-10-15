@@ -1,8 +1,5 @@
 import type { ProfileData, ProfileHeatmapDay } from '../routes/profile.js';
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
-}
+import { NAV_STYLE, escapeHtml, renderNav, type NavContext } from './layout.js';
 
 function relativeTime(iso: string, now: Date): string {
   const diffMs = now.getTime() - Date.parse(iso);
@@ -40,8 +37,6 @@ const SHARED_STYLE = `
   main { max-width: 560px; margin: 0 auto; }
   a { color: #a78bfa; text-decoration: none; }
   a:hover { color: #c4b5fd; }
-  .back { color: #666; font-size: 12px; display: inline-block; margin-bottom: 20px; }
-  .back:hover { color: #a78bfa; }
   header { margin-bottom: 28px; }
   .who { display: flex; align-items: center; gap: 14px; }
   .who img, .avatar-fallback { border-radius: 50%; width: 48px; height: 48px; display: block; }
@@ -69,6 +64,7 @@ const SHARED_STYLE = `
   .empty { color: #666; font-size: 14px; margin: 8px 0 28px; }
   footer { color: #444; font-size: 11px; padding-top: 16px; border-top: 1px solid #141414; }
   footer a { color: #666; }
+  ${NAV_STYLE}
   @media (max-width: 480px) {
     body { padding: 20px 12px; }
     .stats { grid-template-columns: 1fr; }
@@ -76,7 +72,7 @@ const SHARED_STYLE = `
   }
 `;
 
-export function renderProfile(data: ProfileData, updatedAt: Date): string {
+export function renderProfile(data: ProfileData, updatedAt: Date, nav: NavContext): string {
   const handle = escapeHtml(data.handle);
   const avatar = data.avatarUrl
     ? `<img src="${escapeHtml(data.avatarUrl)}" alt="" width="48" height="48" loading="lazy">`
@@ -108,7 +104,7 @@ export function renderProfile(data: ProfileData, updatedAt: Date): string {
 </head>
 <body>
 <main>
-  <a class="back" href="/leaderboard">← leaderboard</a>
+  ${renderNav(null, nav)}
   <header>
     <div class="who">
       ${avatar}
@@ -133,7 +129,7 @@ export function renderProfile(data: ProfileData, updatedAt: Date): string {
 </html>`;
 }
 
-export function renderProfileNotFound(handle: string): string {
+export function renderProfileNotFound(handle: string, nav: NavContext): string {
   const safe = escapeHtml(handle);
   return `<!doctype html>
 <html lang="en">
@@ -150,7 +146,7 @@ export function renderProfileNotFound(handle: string): string {
 </head>
 <body>
 <main>
-  <a class="back" href="/leaderboard">← leaderboard</a>
+  ${renderNav(null, nav)}
   <div class="missing">
     <h1>@${safe}</h1>
     <p>no vibetime profile for this handle.</p>

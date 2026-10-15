@@ -1,10 +1,7 @@
 import type { HeatmapDay, LeaderboardData } from '../routes/leaderboard.js';
+import { NAV_STYLE, escapeHtml, renderNav, type NavContext } from './layout.js';
 
 type Window = 'week' | 'month' | 'all';
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
-}
 
 function relativeTime(iso: string, now: Date): string {
   const diffMs = now.getTime() - Date.parse(iso);
@@ -49,7 +46,7 @@ function windowRange(start: Date, now: Date): string {
   return `${from} – ${to}`;
 }
 
-export function renderLeaderboard(data: LeaderboardData, window: Window, updatedAt: Date, windowStart?: Date | null): string {
+export function renderLeaderboard(data: LeaderboardData, window: Window, updatedAt: Date, windowStart: Date | null, nav: NavContext): string {
   const { entries, devCount, sessionCount } = data;
   const devNoun = devCount === 1 ? 'developer' : 'developers';
   const sessionNoun = sessionCount === 1 ? 'ship' : 'ships';
@@ -70,9 +67,10 @@ vibe login</pre>
           ? `<img src="${escapeHtml(e.avatarUrl)}" alt="" width="24" height="24" loading="lazy">`
           : `<span class="avatar-fallback" aria-hidden="true"></span>`;
         const rankClass = e.rank <= 3 ? `rank rank-top` : `rank`;
-        return `<tr>
+        const isViewer = nav.viewer !== null && nav.viewer.handle.toLowerCase() === e.handle.toLowerCase();
+        return `<tr${isViewer ? ' class="you"' : ''}>
           <td class="${rankClass}">${e.rank}</td>
-          <td class="who"><a href="/@${handle}">${avatar}<span>${handle}</span></a></td>
+          <td class="who"><a href="/@${handle}">${avatar}<span>${handle}</span></a>${isViewer ? '<span class="you-tag">you</span>' : ''}</td>
           <td class="shipped">${e.shippedCount}<span class="days">${e.dayCount} day${e.dayCount === 1 ? '' : 's'}</span></td>
           <td class="activity"><span class="heatmap">${heatmapCells(e.recentDays)}</span></td>
           <td class="last">${escapeHtml(relativeTime(e.lastShippedAt, updatedAt))}</td>
@@ -114,7 +112,9 @@ vibe login</pre>
   td.shipped .days { display: block; color: #555; font-size: 10px; font-weight: 400; letter-spacing: 0.2px; margin-top: 2px; }
   td.activity { width: 110px; }
   td.last { width: 100px; text-align: right; color: #666; font-size: 12px; font-variant-numeric: tabular-nums; }
-  td.who a { color: #e5e5e5; text-decoration: none; display: flex; align-items: center; gap: 10px; }
+  td.who a { color: #e5e5e5; text-decoration: none; display: inline-flex; align-items: center; gap: 10px; vertical-align: middle; max-width: 100%; }
+  tbody tr.you td { background: #120d1c; }
+  .you-tag { font-size: 10px; color: #c4b5fd; border: 1px solid #3b2a5d; border-radius: 999px; padding: 0 6px; margin-left: 8px; vertical-align: middle; }
   td.who a:hover { color: #a78bfa; }
   td.who img, .avatar-fallback { border-radius: 50%; display: block; width: 24px; height: 24px; }
   .avatar-fallback { background: #1a1a1a; }
@@ -133,6 +133,7 @@ vibe login</pre>
   footer .definition { margin-bottom: 8px; }
   footer a { color: #666; }
   .links a, .links code { white-space: nowrap; }
+  ${NAV_STYLE}
   @media (max-width: 600px) {
     body { padding: 20px 12px; }
     tbody td, thead th { padding: 12px 4px; }
@@ -148,8 +149,9 @@ vibe login</pre>
 </head>
 <body>
 <main>
+  ${renderNav('leaderboard', nav)}
   <header>
-    <h1>◆ vibetime · leaderboard</h1>
+    <h1>leaderboard</h1>
     <p class="tagline">ranked by what you ship</p>
     ${scaleLine}
     <p class="sub">updated ${updatedAt.toISOString().slice(0, 16).replace('T', ' ')}Z</p>

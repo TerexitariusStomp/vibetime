@@ -4,6 +4,7 @@ import { submitSession } from './routes/sessions.js';
 import { leaderboardJson, leaderboardHtml } from './routes/leaderboard.js';
 import { parseProfileHandle, profileHtml } from './routes/profile.js';
 import { clientConfig } from './routes/config.js';
+import { githubCallback, githubStart, signOut } from './routes/web-auth.js';
 import { faviconResponse } from './views/favicon.js';
 import { error } from './http.js';
 import { CLI_RECOMMENDED } from './release.js';
@@ -44,6 +45,12 @@ export default {
           return withCors(await refreshAuth(request, env));
         case 'POST /auth/logout':
           return withCors(await revokeAuth(request, env));
+        case 'GET /auth/github/start':
+          return await githubStart(request, env);
+        case 'GET /auth/github/callback':
+          return await githubCallback(request, env);
+        case 'POST /auth/signout':
+          return await signOut(request, env);
         case 'GET /config':
           return withCors(clientConfig());
         case 'POST /sessions': {

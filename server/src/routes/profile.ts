@@ -1,5 +1,6 @@
 import type { Env } from '../env.js';
 import { html } from '../http.js';
+import { currentViewer, pageCacheControl, signInEnabled } from '../web-session.js';
 import { renderProfile, renderProfileNotFound } from '../views/profile.js';
 import { dayKey, startOfCalendarMonth, startOfCalendarWeek } from '../window.js';
 
@@ -144,16 +145,17 @@ async function buildProfile(env: Env, handle: string): Promise<ProfileData | nul
 }
 
 const PAGE_HEADERS = {
-  'cache-control': 'public, max-age=60',
   'content-security-policy': "default-src 'self'; img-src https://avatars.githubusercontent.com; style-src 'unsafe-inline'; base-uri 'self'; form-action 'self'",
   'referrer-policy': 'strict-origin-when-cross-origin',
   'x-content-type-options': 'nosniff',
 } as const;
 
 export async function profileHtml(request: Request, env: Env, handle: string): Promise<Response> {
-  const data = await buildProfile(env, handle);
+  const [data, viewer] = await Promise.all([buildProfile(env, handle), currentViewer(request, env)]);
+  const nav = { viewer, signInEnabled: signInEnabled(env), path: new URL(request.url).pathname };
+  const headers = { ...PAGE_HEADERS, ...pageCacheControl(viewer) };
   if (!data) {
-    return html(renderProfileNotFound(handle), { status: 404, headers: PAGE_HEADERS });
+    return html(renderProfileNotFound(handle, nav), { status: 404, headers });
   }
-  return html(renderProfile(data, new Date()), { headers: PAGE_HEADERS });
+  return html(renderProfile(data, new Date(), nav), { headers });
 }

@@ -1,6 +1,7 @@
 import type { Env } from '../env.js';
 import { html, json } from '../http.js';
 import { renderLeaderboard } from '../views/leaderboard.js';
+import { currentViewer, pageCacheControl, signInEnabled } from '../web-session.js';
 import { dayKey, startOfCalendarMonth, startOfCalendarWeek } from '../window.js';
 
 const WINDOWS = {
@@ -145,14 +146,16 @@ export async function leaderboardJson(request: Request, env: Env): Promise<Respo
 }
 
 export async function leaderboardHtml(request: Request, env: Env): Promise<Response> {
-  const window = parseWindow(new URL(request.url).searchParams.get('window'));
-  const data = await buildData(env, window);
+  const url = new URL(request.url);
+  const window = parseWindow(url.searchParams.get('window'));
+  const [data, viewer] = await Promise.all([buildData(env, window), currentViewer(request, env)]);
+  const nav = { viewer, signInEnabled: signInEnabled(env), path: `${url.pathname}${url.search}` };
   const windowStart = window === 'all' ? null
     : window === 'month' ? startOfCalendarMonth()
     : startOfCalendarWeek();
-  return html(renderLeaderboard(data, window, new Date(), windowStart), {
+  return html(renderLeaderboard(data, window, new Date(), windowStart, nav), {
     headers: {
-      'cache-control': 'public, max-age=60',
+      ...pageCacheControl(viewer),
       'content-security-policy': "default-src 'self'; img-src https://avatars.githubusercontent.com; style-src 'unsafe-inline'; base-uri 'self'; form-action 'self'",
       'referrer-policy': 'strict-origin-when-cross-origin',
       'x-content-type-options': 'nosniff',
