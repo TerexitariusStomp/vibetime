@@ -66,7 +66,7 @@ function forbidden(): Response {
 
 export function copyScript(): Response {
   return new Response(COPY_SCRIPT, {
-    headers: { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=3600', 'x-content-type-options': 'nosniff' },
+    headers: { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' },
   });
 }
 

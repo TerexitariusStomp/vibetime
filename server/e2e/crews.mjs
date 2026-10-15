@@ -252,6 +252,10 @@ const dee = await signIn('dee');
   check('the leaderboard bar links to crews', lb.includes('href="/crews"'));
   const js = await anon.get('/assets/copy.js');
   check('the copy script is served as JavaScript from the site itself', js.status === 200 && js.headers.get('content-type').startsWith('text/javascript'));
+  const src = /<script src="([^"]+)"/.exec(await (await anon.get('/crews')).text())?.[1] ?? '';
+  const versioned = await anon.get(src);
+  check('pages load the script by a URL that changes with its contents, so a new version is never stuck in a cache',
+    /^\/assets\/copy\.js\?v=[a-z0-9]+$/.test(src) && versioned.status === 200 && /immutable/.test(versioned.headers.get('cache-control') ?? ''), `${src} ${versioned.headers.get('cache-control')}`);
   const nope = await anon.get('/crew/does-not-exist-zz');
   check('an unknown crew is a 404 page, not an error', nope.status === 404);
 }
