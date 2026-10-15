@@ -68,6 +68,7 @@ const SHARED_STYLE = `
   .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
   .chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #1a1a1a; border-radius: 999px; padding: 3px 10px 3px 3px; font-size: 12px; color: #e5e5e5; }
   .chip:hover { border-color: #a78bfa; color: #e5e5e5; }
+  .chip-rank { color: #555; }
   .chip-mono { width: 20px; height: 20px; border-radius: 999px; background: #a78bfa; color: #0a0a0a; font-size: 9px; font-weight: 700; display: inline-grid; place-items: center; }
   ${NAV_STYLE}
   ${BACK_STYLE}
@@ -78,9 +79,9 @@ const SHARED_STYLE = `
   }
 `;
 
-export function renderProfile(data: ProfileData, updatedAt: Date, nav: NavContext, crews: Membership[], back: BackLink): string {
+export function renderProfile(data: ProfileData, updatedAt: Date, nav: NavContext, crews: Membership[], back: BackLink, ranks: Map<string, number>): string {
   const crewChips = crews.length === 0 ? '' : `<div class="chips">${crews.map((c) =>
-    `<a class="chip" href="/crew/${escapeHtml(c.slug)}"><span class="chip-mono" style="background:${crewShade(c.slug)}" aria-hidden="true">${escapeHtml(crewInitials(c.name))}</span>${escapeHtml(c.name)}</a>`).join('')}</div>`;
+    `<a class="chip" href="/crew/${escapeHtml(c.slug)}"><span class="chip-mono" style="background:${crewShade(c.slug)}" aria-hidden="true">${escapeHtml(crewInitials(c.name))}</span>${escapeHtml(c.name)}${ranks.has(c.slug) ? ` <span class="chip-rank">#${ranks.get(c.slug)}</span>` : ''}</a>`).join('')}</div>`;
   const handle = escapeHtml(data.handle);
   const avatar = data.avatarUrl
     ? `<img src="${escapeHtml(data.avatarUrl)}" alt="" width="48" height="48" loading="lazy">`

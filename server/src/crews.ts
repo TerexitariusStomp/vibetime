@@ -226,6 +226,14 @@ export async function crewsOf(env: Env, githubId: number): Promise<Membership[]>
   return res.results ?? [];
 }
 
+// Signing in on the web does not install anything, so a member can sit in a
+// crew with no way to ship until they run the CLI. Any session at all means
+// they have.
+export async function hasUsedCli(env: Env, githubId: number): Promise<boolean> {
+  const r = await env.DB.prepare(`SELECT 1 AS x FROM sessions WHERE user_github_id = ? LIMIT 1`).bind(githubId).first<{ x: number }>();
+  return r !== null;
+}
+
 export async function isMember(env: Env, crewId: number, githubId: number): Promise<boolean> {
   const r = await env.DB.prepare(
     `SELECT 1 AS x FROM crew_members WHERE crew_id = ? AND user_github_id = ? AND left_at IS NULL`,
