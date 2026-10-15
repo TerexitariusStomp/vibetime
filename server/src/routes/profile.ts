@@ -2,6 +2,7 @@ import type { Env } from '../env.js';
 import { html } from '../http.js';
 import { currentViewer, pageCacheControl, signInEnabled } from '../web-session.js';
 import { renderProfile, renderProfileNotFound } from '../views/profile.js';
+import { crewsOf } from '../crews.js';
 import { dayKey, startOfCalendarMonth, startOfCalendarWeek } from '../window.js';
 
 const HEATMAP_DAYS = 7;
@@ -17,6 +18,7 @@ export interface ProfileHeatmapDay {
 }
 
 export interface ProfileData {
+  githubId: number;
   handle: string;
   avatarUrl: string | null;
   week: ProfileWindowStats;
@@ -132,6 +134,7 @@ async function buildProfile(env: Env, handle: string): Promise<ProfileData | nul
   }
 
   return {
+    githubId: user.github_id,
     handle: user.handle,
     avatarUrl: user.avatar_url,
     week,
@@ -157,5 +160,7 @@ export async function profileHtml(request: Request, env: Env, handle: string): P
   if (!data) {
     return html(renderProfileNotFound(handle, nav), { status: 404, headers });
   }
-  return html(renderProfile(data, new Date(), nav), { headers });
+  // A missing crews table must not take the profile down with it.
+  const crews = await crewsOf(env, data.githubId).catch(() => []);
+  return html(renderProfile(data, new Date(), nav, crews), { headers });
 }

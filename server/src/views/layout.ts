@@ -4,7 +4,7 @@ export function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }
 
-export type NavPlace = 'leaderboard' | null;
+export type NavPlace = 'leaderboard' | 'crews' | null;
 
 export interface NavContext {
   viewer: Viewer | null;
@@ -21,7 +21,7 @@ export const NAV_STYLE = `
   .nav .places a { color: #666; padding: 4px 10px; border-radius: 6px; font-size: 13px; text-decoration: none; }
   .nav .places a:hover { color: #a78bfa; }
   .nav .places a.on { color: #e5e5e5; background: #15101f; }
-  .nav .account { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+  .nav .account { display: flex; align-items: center; gap: 10px; font-size: 12px; flex-shrink: 0; }
   .nav .me { display: flex; align-items: center; gap: 8px; color: #888; text-decoration: none; min-width: 0; }
   .nav .me:hover { color: #a78bfa; }
   .nav .me img, .nav .me .avatar-fallback { width: 22px; height: 22px; border-radius: 50%; display: block; }
@@ -36,6 +36,9 @@ export const NAV_STYLE = `
     .nav { gap: 10px; }
     .nav .places a { padding: 4px 6px; }
     .nav .me span { display: none; }
+  }
+  @media (max-width: 420px) {
+    .nav .brand-word { display: none; }
   }
 `;
 
@@ -56,8 +59,8 @@ export function renderNav(place: NavPlace, ctx: NavContext): string {
     account = `<a class="signin" href="/auth/github/start?next=${encodeURIComponent(ctx.path)}">sign in</a>`;
   }
   return `<nav class="nav" aria-label="vibetime">
-    <a class="brand" href="/leaderboard">◆ vibetime</a>
-    <div class="places">${place_('leaderboard', '/leaderboard', 'leaderboard')}</div>
+    <a class="brand" href="/leaderboard" aria-label="vibetime">◆<span class="brand-word"> vibetime</span></a>
+    <div class="places">${place_('leaderboard', '/leaderboard', 'leaderboard')}${place_('crews', '/crews', 'crews')}</div>
     ${account}
   </nav>`;
 }

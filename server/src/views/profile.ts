@@ -1,5 +1,6 @@
 import type { ProfileData, ProfileHeatmapDay } from '../routes/profile.js';
 import { NAV_STYLE, escapeHtml, renderNav, type NavContext } from './layout.js';
+import type { Membership } from '../crews.js';
 
 function relativeTime(iso: string, now: Date): string {
   const diffMs = now.getTime() - Date.parse(iso);
@@ -64,6 +65,10 @@ const SHARED_STYLE = `
   .empty { color: #666; font-size: 14px; margin: 8px 0 28px; }
   footer { color: #444; font-size: 11px; padding-top: 16px; border-top: 1px solid #141414; }
   footer a { color: #666; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #1a1a1a; border-radius: 999px; padding: 3px 10px 3px 3px; font-size: 12px; color: #e5e5e5; }
+  .chip:hover { border-color: #a78bfa; color: #e5e5e5; }
+  .chip-mono { width: 20px; height: 20px; border-radius: 999px; background: #a78bfa; color: #0a0a0a; font-size: 9px; font-weight: 700; display: inline-grid; place-items: center; }
   ${NAV_STYLE}
   @media (max-width: 480px) {
     body { padding: 20px 12px; }
@@ -72,7 +77,9 @@ const SHARED_STYLE = `
   }
 `;
 
-export function renderProfile(data: ProfileData, updatedAt: Date, nav: NavContext): string {
+export function renderProfile(data: ProfileData, updatedAt: Date, nav: NavContext, crews: Membership[]): string {
+  const crewChips = crews.length === 0 ? '' : `<div class="chips">${crews.map((c) =>
+    `<a class="chip" href="/crew/${escapeHtml(c.slug)}"><span class="chip-mono" aria-hidden="true">${escapeHtml(c.name.split(/\s+/).map((w) => [...w][0] ?? '').join('').slice(0, 2).toUpperCase())}</span>${escapeHtml(c.name)}</a>`).join('')}</div>`;
   const handle = escapeHtml(data.handle);
   const avatar = data.avatarUrl
     ? `<img src="${escapeHtml(data.avatarUrl)}" alt="" width="48" height="48" loading="lazy">`
@@ -114,6 +121,7 @@ export function renderProfile(data: ProfileData, updatedAt: Date, nav: NavContex
       </div>
     </div>
     ${rankLine}
+    ${crewChips}
   </header>
   <div class="stats">
     ${statBlock('this week', data.week.ships, data.week.days)}

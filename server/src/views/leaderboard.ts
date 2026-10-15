@@ -3,7 +3,7 @@ import { NAV_STYLE, escapeHtml, renderNav, type NavContext } from './layout.js';
 
 type Window = 'week' | 'month' | 'all';
 
-function relativeTime(iso: string, now: Date): string {
+export function relativeTime(iso: string, now: Date): string {
   const diffMs = now.getTime() - Date.parse(iso);
   const minutes = Math.floor(diffMs / 60_000);
   if (minutes < 1) return 'just now';
@@ -15,7 +15,7 @@ function relativeTime(iso: string, now: Date): string {
   return iso.slice(0, 10);
 }
 
-function heatmapCells(recent: HeatmapDay[]): string {
+export function heatmapCells(recent: HeatmapDay[]): string {
   return recent.map(({ day, n }) => {
     const cls = n === 0 ? 'cell-0' : n === 1 ? 'cell-1' : n <= 3 ? 'cell-2' : 'cell-3';
     const noun = n === 1 ? 'ship' : 'ships';  // heatmap intensity stays per-ship
@@ -37,7 +37,7 @@ const SCALE_WINDOW_LABEL: Record<Window, string> = {
 // The calendar week can straddle a month boundary (a Monday start in the old
 // month), which makes "this week" occasionally show more developers than "this
 // month". Spelling out the window's dates keeps that from reading as a bug.
-function windowRange(start: Date, now: Date): string {
+export function windowRange(start: Date, now: Date): string {
   const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
   const from = `${months[start.getUTCMonth()]} ${start.getUTCDate()}`;
   const to = start.getUTCMonth() === now.getUTCMonth()

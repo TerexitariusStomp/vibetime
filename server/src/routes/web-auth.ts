@@ -120,7 +120,7 @@ export async function githubCallback(request: Request, env: Env): Promise<Respon
 }
 
 // A cross-site form could otherwise sign people out of the site.
-function sameOrigin(request: Request): boolean {
+export function sameOrigin(request: Request): boolean {
   const origin = request.headers.get('origin');
   if (origin) return origin === new URL(request.url).origin;
   return request.headers.get('sec-fetch-site') === 'same-origin';
