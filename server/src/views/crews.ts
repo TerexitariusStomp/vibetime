@@ -1,5 +1,5 @@
 import type { BoardEntry, Crew, CrewWindow, Face, MemberEntry } from '../crews.js';
-import { MAX_CREWS_PER_USER, MAX_MEMBERS, MIN_MEMBERS_TO_RANK, NAME_MAX } from '../crews.js';
+import { MAX_CREWS_PER_USER, MAX_MEMBERS, MIN_MEMBERS_TO_RANK, NAME_MAX, slugFor } from '../crews.js';
 import { BACK_STYLE, NAV_STYLE, crewInitials, crewShade, escapeHtml, renderBack, renderNav, type BackLink, type NavContext, type NavPlace } from './layout.js';
 import { heatmapCells, relativeTime, windowRange } from './leaderboard.js';
 
@@ -130,6 +130,8 @@ const STYLE = `
   .field { max-width: 440px; margin: 0 auto; }
   .field label { display: block; color: #888; font-size: 12px; margin: 16px 0 6px; }
   .field input { width: 100%; padding: 10px 12px; font-size: 14px; }
+  .field .hint { color: #555; font-size: 11px; margin: 6px 0 0; }
+  .field .hint b { color: #c4b5fd; font-weight: 400; }
   .empty { text-align: center; color: #666; padding: 32px 12px; }
   footer { color: #444; font-size: 11px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #141414; }
   ${NAV_STYLE}
@@ -164,6 +166,10 @@ function page(title: string, place: NavPlace, nav: NavContext, body: string): st
 </body>
 </html>`;
 }
+
+const INSTALL = `<pre>npm i -g vibetime-cli@latest
+vibe init
+vibe login</pre>`;
 
 function note(message: string | null): string {
   const m = message ? MESSAGES[message] : undefined;
@@ -228,7 +234,7 @@ export interface CrewViewerState {
 export function renderCrew(
   crew: Crew, members: MemberEntry[], window: CrewWindow, start: Date | null, now: Date,
   rank: { rank: number; above: BoardEntry | null; count: number } | null,
-  nav: NavContext, me: CrewViewerState, message: string | null, origin: string, back: BackLink,
+  nav: NavContext, me: CrewViewerState, message: string | null, origin: string, back: BackLink, needsCli: boolean,
 ): string {
   const ships = members.reduce((a, m) => a + m.ships, 0);
   const shipping = members.filter((m) => m.current && m.ships > 0).length;
@@ -266,7 +272,9 @@ export function renderCrew(
     }).join('');
 
   const inviteUrl = `${origin}/join/${crew.inviteCode}`;
-  const memberTools = me.member ? `
+  const setup = me.member && needsCli ? `
+  <div class="steps" style="margin-top:18px"><div class="lbl">set up vibetime so your ships count here:</div>${INSTALL}</div>` : '';
+  const memberTools = me.member ? `${setup}
   <div class="box">
     <span class="lbl">invite people · anyone with this link can join</span>
     <input id="invite-link" type="text" readonly value="${escapeHtml(inviteUrl)}" aria-label="invite link">
@@ -317,16 +325,14 @@ export function renderCrew(
 
 export function renderInvite(
   crew: Crew, weekShips: number, rank: number | null, crewCount: number, avatars: (string | null)[],
-  nav: NavContext, state: 'signed-out' | 'can-join' | 'limit' | 'full', code: string,
+  nav: NavContext, state: 'signed-out' | 'can-join' | 'limit' | 'full', code: string, inCrews: number, needsCli: boolean,
 ): string {
-  const install = `<div class="steps"><div class="lbl">new to vibetime? set it up so your ships count:</div><pre>npm i -g vibetime-cli@latest
-vibe init
-vibe login</pre></div>`;
+  const install = `<div class="steps"><div class="lbl">new to vibetime? set it up so your ships count:</div>${INSTALL}</div>`;
   const action = state === 'signed-out'
     ? (nav.signInEnabled ? `<a class="btn btn-primary btn-block" href="/auth/github/start?next=${encodeURIComponent(`/join/${code}`)}">join with GitHub</a>` : '')
     : state === 'can-join'
       ? `<form method="post" action="/join/${escapeHtml(code)}"><button class="btn btn-primary btn-block" type="submit">join ${escapeHtml(crew.name)}</button></form>
-         <p class="fine">signed in as @${escapeHtml(nav.viewer?.handle ?? '')}</p>`
+         <p class="fine">signed in as @${escapeHtml(nav.viewer?.handle ?? '')} · you are in ${inCrews} of ${MAX_CREWS_PER_USER} crews</p>`
       : state === 'limit'
         ? `<span class="btn btn-quiet btn-block">you are in ${MAX_CREWS_PER_USER} crews</span><p class="fine">leave one of your crews to join this one.</p>`
         : `<span class="btn btn-quiet btn-block">this crew is full</span><p class="fine">it has ${MAX_MEMBERS} members. ask @${escapeHtml(crew.ownerHandle)} about it.</p>`;
@@ -339,7 +345,7 @@ vibe login</pre></div>`;
     ${avatars.length ? `<div class="stack">${avatars.map((a) => avatar(a, 22)).join('')}</div>` : ''}
     ${action}
     <p class="fine">joining puts your handle and ship counts on this crew's public page. you can leave any time.</p>
-    ${state === 'signed-out' ? install : ''}
+    ${state === 'signed-out' || needsCli ? install : ''}
   </div>`);
 }
 
@@ -361,7 +367,7 @@ export function renderCrewMissing(nav: NavContext): string {
   </div>`);
 }
 
-export function renderCreate(nav: NavContext, crewCount: number, message: string | null, name: string): string {
+export function renderCreate(nav: NavContext, crewCount: number, message: string | null, name: string, host: string): string {
   const atLimit = crewCount >= MAX_CREWS_PER_USER;
   return page('start a crew · vibetime', 'crews', nav, `
   <form class="field" method="post" action="/crews">
@@ -370,6 +376,7 @@ export function renderCreate(nav: NavContext, crewCount: number, message: string
     <p class="sub">a crew is a name and the people who join it. you can rename it later.</p>
     <label for="crew-name">crew name</label>
     <input id="crew-name" name="name" value="${escapeHtml(name)}" minlength="2" maxlength="${NAME_MAX}" autocomplete="off" required ${atLimit ? 'disabled' : 'autofocus'}>
+    <p class="hint">your crew lives at <b id="slug-preview" data-host="${escapeHtml(host)}">${escapeHtml(host)}/crew/${escapeHtml(name ? slugFor(name) : '…')}</b></p>
     <div style="margin-top:20px">${atLimit
       ? `<span class="btn btn-quiet btn-block">you are in ${MAX_CREWS_PER_USER} crews already</span>`
       : `<button class="btn btn-primary btn-block" type="submit">start crew</button>`}</div>
@@ -386,7 +393,15 @@ export function renderConfirm(nav: NavContext, title: string, body: string, acti
   </div>`);
 }
 
-export const COPY_SCRIPT = `document.addEventListener('click', function (e) {
+// Mirrors slugFor for the preview only; the server decides the real address.
+export const COPY_SCRIPT = `document.addEventListener('input', function (e) {
+  if (!e.target || e.target.id !== 'crew-name') return;
+  var out = document.getElementById('slug-preview');
+  if (!out) return;
+  var slug = e.target.value.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 32).replace(/-+$/, '');
+  out.textContent = out.getAttribute('data-host') + '/crew/' + (slug || '…');
+});
+document.addEventListener('click', function (e) {
   var b = e.target.closest && e.target.closest('[data-copy]');
   if (!b) return;
   var text = b.getAttribute('data-copy');

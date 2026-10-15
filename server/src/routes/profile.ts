@@ -3,7 +3,7 @@ import { html } from '../http.js';
 import { currentViewer, pageCacheControl, signInEnabled } from '../web-session.js';
 import { backFrom } from '../views/layout.js';
 import { renderProfile, renderProfileNotFound } from '../views/profile.js';
-import { crewsOf } from '../crews.js';
+import { crewBoard, crewsOf } from '../crews.js';
 import { dayKey, startOfCalendarMonth, startOfCalendarWeek } from '../window.js';
 
 const HEATMAP_DAYS = 7;
@@ -164,5 +164,10 @@ export async function profileHtml(request: Request, env: Env, handle: string): P
   }
   // A missing crews table must not take the profile down with it.
   const crews = await crewsOf(env, data.githubId).catch(() => []);
-  return html(renderProfile(data, new Date(), nav, crews, back), { headers });
+  const ranks = new Map<string, number>();
+  if (crews.length) {
+    const board = await crewBoard(env, 'week').catch(() => []);
+    for (const b of board) if (b.rank !== null) ranks.set(b.slug, b.rank);
+  }
+  return html(renderProfile(data, new Date(), nav, crews, back, ranks), { headers });
 }
