@@ -65,7 +65,7 @@ export async function exchangeAuth(request: Request, env: Env): Promise<Response
   const token = body.github_access_token;
   if (typeof token !== 'string' || token.length < 8) return error(400, 'github_access_token required');
 
-  const ghRes = await fetch('https://api.github.com/user', {
+  const ghRes = await fetch(`${env.GITHUB_API_BASE ?? 'https://api.github.com'}/user`, {
     headers: {
       'authorization': `Bearer ${token}`,
       'user-agent': 'vibetime-api',

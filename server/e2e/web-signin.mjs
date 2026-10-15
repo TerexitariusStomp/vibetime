@@ -97,6 +97,14 @@ for (const evil of ['//evil.example/x', 'https://evil.example', '/\\evil.example
   check(`next=${evil} cannot leave the site`, decodeURIComponent(stateCookie.slice(state.length + 1)) === '/leaderboard', stateCookie);
 }
 {
+  const { state, stateCookie } = await startSignIn('/@ü-日本');
+  const res = await req(`/auth/github/callback?code=uni&state=${state}`, { headers: { cookie: `vt_oauth=${stateCookie}` } });
+  check('a non-ASCII next still finishes sign-in on a safe page', res.status === 302 && res.headers.get('location') === '/leaderboard' && !!cookieValue(res, 'vt_session'),
+    `${res.status} ${res.headers.get('location')}`);
+  const out = await req('/auth/signout', { method: 'POST', headers: { origin: BASE, 'content-type': 'application/x-www-form-urlencoded' }, body: `next=${encodeURIComponent('/日本')}` });
+  check('a non-ASCII next on sign-out still signs out', out.status === 303 && out.headers.get('location') === '/leaderboard', `${out.status} ${out.headers.get('location')}`);
+}
+{
   const res = await req('/auth/github/callback?code=x&state=whatever');
   check('callback without the state cookie is refused with a page, not a session', res.status === 400 && !cookieValue(res, 'vt_session'));
   const { stateCookie } = await startSignIn();
@@ -173,6 +181,17 @@ const alice = users.get('alice');
   const { session: again } = await signIn('alice');
   const rows = d1(`SELECT COUNT(*) n FROM users WHERE github_id = ${alice.id}`);
   check('signing in again reuses the same user row', !!again && rows[0].n === 1);
+}
+
+{
+  const res = await req('/auth/exchange', { method: 'POST', headers: { 'content-type': 'application/json', 'x-cli-version': '0.14.1' }, body: JSON.stringify({ github_access_token: 'tok-carol' }) });
+  const body = await res.json();
+  const carol = users.get('carol');
+  const rows = carol ? d1(`SELECT handle, avatar_url FROM users WHERE github_id = ${carol.id}`) : [];
+  check('the CLI login still issues a token pair and writes the same user row',
+    res.status === 200 && typeof body.jwt === 'string' && typeof body.refreshToken === 'string' && body.handle === carol?.login
+      && rows[0]?.handle === carol?.login && rows[0]?.avatar_url === carol?.avatar_url,
+    `${res.status} ${JSON.stringify(body).slice(0, 120)}`);
 }
 
 if (offPort) {

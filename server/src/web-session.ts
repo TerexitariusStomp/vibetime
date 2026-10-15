@@ -38,7 +38,9 @@ export function cookie(name: string, value: string, maxAgeSeconds: number, path 
 export function safeNext(value: string | null | undefined): string {
   if (!value || value.length > 300) return '/leaderboard';
   if (!value.startsWith('/') || value.startsWith('//') || value.startsWith('/\\')) return '/leaderboard';
-  if (/[\u0000-\u001f]/.test(value)) return '/leaderboard';
+  // Every path on this site is ASCII, and a Location header carries bytes, so
+  // anything else would arrive garbled.
+  if (!/^[\x21-\x7e]+$/.test(value)) return '/leaderboard';
   return value;
 }
 

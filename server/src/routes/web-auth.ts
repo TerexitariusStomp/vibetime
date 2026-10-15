@@ -102,15 +102,20 @@ export async function githubCallback(request: Request, env: Env): Promise<Respon
     return notice(502, 'sign-in did not finish', 'GitHub did not say who you are.', next);
   }
 
-  await upsertGithubUser(env, { id: gh.id, login: gh.login, avatar_url: gh.avatar_url });
   const token = randomToken();
   const now = Date.now();
-  await env.DB.batch([
-    env.DB.prepare(`DELETE FROM web_sessions WHERE expires_at <= ?`).bind(new Date(now).toISOString()),
-    env.DB.prepare(
-      `INSERT INTO web_sessions (token_hash, user_github_id, created_at, expires_at) VALUES (?, ?, ?, ?)`,
-    ).bind(await sha256Hex(token), gh.id, new Date(now).toISOString(), new Date(now + SESSION_TTL_MS).toISOString()),
-  ]);
+  try {
+    await upsertGithubUser(env, { id: gh.id, login: gh.login, avatar_url: gh.avatar_url });
+    await env.DB.batch([
+      env.DB.prepare(`DELETE FROM web_sessions WHERE expires_at <= ?`).bind(new Date(now).toISOString()),
+      env.DB.prepare(
+        `INSERT INTO web_sessions (token_hash, user_github_id, created_at, expires_at) VALUES (?, ?, ?, ?)`,
+      ).bind(await sha256Hex(token), gh.id, new Date(now).toISOString(), new Date(now + SESSION_TTL_MS).toISOString()),
+    ]);
+  } catch (e) {
+    console.error('web session write failed:', e instanceof Error ? e.message : e);
+    return notice(503, 'sign-in did not finish', 'vibetime could not save the sign-in.', next);
+  }
   return redirect(next, [clearState, cookie(SESSION_COOKIE, token, SESSION_TTL_MS / 1000)]);
 }
 
@@ -131,7 +136,12 @@ export async function signOut(request: Request, env: Env): Promise<Response> {
   } catch { /* keep the default */ }
   const token = readCookie(request, SESSION_COOKIE);
   if (token) {
-    await env.DB.prepare(`DELETE FROM web_sessions WHERE token_hash = ?`).bind(await sha256Hex(token)).run();
+    try {
+      await env.DB.prepare(`DELETE FROM web_sessions WHERE token_hash = ?`).bind(await sha256Hex(token)).run();
+    } catch (e) {
+      console.error('web session delete failed:', e instanceof Error ? e.message : e);
+      return notice(503, 'not signed out', 'vibetime could not end the session. try again in a moment.');
+    }
   }
   return redirect(next, [cookie(SESSION_COOKIE, '', 0)], 303);
 }
