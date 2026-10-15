@@ -5,6 +5,10 @@ import { leaderboardJson, leaderboardHtml } from './routes/leaderboard.js';
 import { parseProfileHandle, profileHtml } from './routes/profile.js';
 import { clientConfig } from './routes/config.js';
 import { githubCallback, githubStart, signOut } from './routes/web-auth.js';
+import {
+  copyScript, createCrewPost, crewConfirmHtml, crewHtml, crewJoinPost, crewLeavePost, crewSettingsPost, crewsHtml,
+  invitePost, inviteHtml, lowercaseCrewRedirect, newCrewHtml, parseCrewPath, parseInvitePath,
+} from './routes/crews.js';
 import { faviconResponse } from './views/favicon.js';
 import { error } from './http.js';
 import { CLI_RECOMMENDED } from './release.js';
@@ -37,6 +41,22 @@ export default {
       if (profileHandle) {
         return await profileHtml(request, env, profileHandle);
       }
+      const crewPath = parseCrewPath(url.pathname);
+      if (crewPath) {
+        const { slug, rest } = crewPath;
+        const lower = request.method === 'GET' ? lowercaseCrewRedirect(slug, rest, url.search) : null;
+        if (lower) return lower;
+        if (request.method === 'GET' && rest === '') return await crewHtml(request, env, slug);
+        if (request.method === 'GET' && rest === '/confirm') return await crewConfirmHtml(request, env, slug);
+        if (request.method === 'POST' && rest === '/join') return await crewJoinPost(request, env, slug);
+        if (request.method === 'POST' && rest === '/leave') return await crewLeavePost(request, env, slug);
+        if (request.method === 'POST' && rest === '/settings') return await crewSettingsPost(request, env, slug);
+      }
+      const inviteCode = parseInvitePath(url.pathname);
+      if (inviteCode) {
+        if (request.method === 'GET') return await inviteHtml(request, env, inviteCode);
+        if (request.method === 'POST') return await invitePost(request, env, inviteCode);
+      }
 
       switch (route) {
         case 'POST /auth/exchange':
@@ -51,6 +71,14 @@ export default {
           return await githubCallback(request, env);
         case 'POST /auth/signout':
           return await signOut(request, env);
+        case 'GET /crews':
+          return await crewsHtml(request, env);
+        case 'GET /crews/new':
+          return await newCrewHtml(request, env);
+        case 'POST /crews':
+          return await createCrewPost(request, env);
+        case 'GET /assets/copy.js':
+          return copyScript();
         case 'GET /config':
           return withCors(clientConfig());
         case 'POST /sessions': {
