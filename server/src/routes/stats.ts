@@ -1,0 +1,67 @@
+import type { Env } from '../env.js';
+import { html, json } from '../http.js';
+import { renderStats } from '../views/stats.js';
+import { currentViewer, pageCacheControl, signInEnabled } from '../web-session.js';
+
+export interface StatsData {
+  devs: number;
+  projects: number;
+  ships: number;
+  commits: number;
+  lines: number;
+  crews: number;
+}
+
+async function buildStats(env: Env): Promise<StatsData> {
+  const [shippedRes, sessionRes, crewRes] = await Promise.all([
+    env.DB.prepare(
+      `SELECT COUNT(DISTINCT user_github_id) AS devs,
+              COALESCE(SUM(ships), 0) AS ships
+       FROM ship_events`,
+    ).first<{ devs: number; ships: number }>(),
+    env.DB.prepare(
+      `SELECT COUNT(DISTINCT user_github_id || ':' || project_hash) AS projects,
+              COALESCE(SUM(commits), 0) AS commits,
+              COALESCE(SUM(lines_added), 0) AS lines
+       FROM sessions s
+       WHERE EXISTS (SELECT 1 FROM ship_events e WHERE e.session_id = s.id)`,
+    ).first<{ projects: number; commits: number; lines: number }>(),
+    env.DB.prepare(
+      `SELECT COUNT(*) AS crews
+       FROM crews c
+       WHERE c.deleted_at IS NULL
+         AND EXISTS (SELECT 1 FROM crew_members m WHERE m.crew_id = c.id AND m.left_at IS NULL)`,
+    ).first<{ crews: number }>().catch(() => null),
+  ]);
+
+  return {
+    devs: shippedRes?.devs ?? 0,
+    projects: sessionRes?.projects ?? 0,
+    ships: shippedRes?.ships ?? 0,
+    commits: sessionRes?.commits ?? 0,
+    lines: sessionRes?.lines ?? 0,
+    crews: crewRes?.crews ?? 0,
+  };
+}
+
+export async function statsJson( env: Env): Promise<Response> {
+  const data = await buildStats(env);
+  return json({
+    updatedAt: new Date().toISOString(),
+    ...data,
+  }, { headers: { 'cache-control': 'public, max-age=60' } });
+}
+
+export async function statsHtml(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const [data, viewer] = await Promise.all([buildStats(env), currentViewer(request, env)]);
+  const nav = { viewer, signInEnabled: signInEnabled(env), path: `${url.pathname}${url.search}` };
+  return html(renderStats(data, new Date(), nav), {
+    headers: {
+      ...pageCacheControl(viewer),
+      'content-security-policy': "default-src 'self'; img-src https://avatars.githubusercontent.com; style-src 'unsafe-inline'; base-uri 'self'; form-action 'self'",
+      'referrer-policy': 'strict-origin-when-cross-origin',
+      'x-content-type-options': 'nosniff',
+    },
+  });
+}

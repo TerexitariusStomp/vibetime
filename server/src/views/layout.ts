@@ -17,7 +17,7 @@ export function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }
 
-export type NavPlace = 'leaderboard' | 'crews' | null;
+export type NavPlace = 'leaderboard' | 'crews' | 'stats' | null;
 
 export interface NavContext {
   viewer: Viewer | null;
@@ -44,6 +44,7 @@ export function backFrom(request: Request, fallback: BackLink): BackLink {
   if (!/^[\x21-\x7e]+$/.test(href) || href.length > 300) return fallback;
   if (from.pathname === '/leaderboard') return { href, label: 'leaderboard' };
   if (from.pathname === '/crews') return { href, label: 'crews' };
+  if (from.pathname === '/stats') return { href, label: 'stats' };
   if (/^\/crew\/[a-z0-9-]+$/.test(from.pathname)) return { href, label: 'back to the crew' };
   const handle = /^\/@([A-Za-z0-9-]+)$/.exec(from.pathname);
   if (handle) return { href, label: `@${handle[1]}` };
@@ -106,7 +107,7 @@ export function renderNav(place: NavPlace, ctx: NavContext): string {
   }
   return `<nav class="nav" aria-label="vibetime">
     <a class="brand" href="/leaderboard" aria-label="vibetime">◆<span class="brand-word"> vibetime</span></a>
-    <div class="places">${place_('leaderboard', '/leaderboard', 'leaderboard')}${place_('crews', '/crews', 'crews')}</div>
+    <div class="places">${place_('leaderboard', '/leaderboard', 'leaderboard')}${place_('crews', '/crews', 'crews')}${place_('stats', '/stats', 'stats')}</div>
     ${account}
   </nav>`;
 }
