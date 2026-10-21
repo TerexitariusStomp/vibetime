@@ -70,10 +70,22 @@ function zcodeHookCommand(event: HookEvent): string {
   return `${quote(process.execPath)} ${quote(cli)} __hook ${event} --tool zcode`;
 }
 
+function isVibeHook(hook: ZcodeHook): boolean {
+  return typeof hook?.command === 'string' && hook.command.includes('__hook');
+}
+
 export function isVibeZcodeHook(group: ZcodeHookGroup): boolean {
-  // `__hook` is our coined subcommand, so matching it alone is enough, as for
-  // the other editors.
-  return Array.isArray(group?.hooks) && group.hooks.some((h) => typeof h?.command === 'string' && h.command.includes('__hook'));
+  return Array.isArray(group?.hooks) && group.hooks.some(isVibeHook);
+}
+
+// User commands can share a matcher group with ours. Keep both those commands
+// and the group's metadata when replacing or removing Vibetime hooks.
+function withoutVibeHooks(groups: ZcodeHookGroup[]): ZcodeHookGroup[] {
+  return groups.flatMap((group) => {
+    if (!isVibeZcodeHook(group)) return [group];
+    const hooks = group.hooks.filter((hook) => !isVibeHook(hook));
+    return hooks.length ? [{ ...group, hooks }] : [];
+  });
 }
 
 export function mergeZcodeHooks(config: ZcodeConfig): {
@@ -100,12 +112,13 @@ export function mergeZcodeHooks(config: ZcodeConfig): {
       // Same command: leave the group exactly as ZCode last saved it. Rewriting
       // it would drop the user's switch-on, and the session-start repair runs
       // this on every session, so tracking would turn itself off each time.
-      const current = ours.length === 1 && ours[0].hooks.length === 1 && ours[0].hooks[0].command === command;
+      const owned = ours.flatMap((g) => g.hooks.filter(isVibeHook));
+      const current = owned.length === 1 && owned[0].command === command;
       if (current) continue;
       // A changed command (a moved Node or CLI) is new code to run, so it goes
       // back to off and waits for the user to switch it on again.
       updated++;
-      events[zcodeEvent] = [...list.filter((candidate) => !isVibeZcodeHook(candidate)), group];
+      events[zcodeEvent] = [...withoutVibeHooks(list), group];
     } else {
       list.push(group);
       events[zcodeEvent] = list;
@@ -126,11 +139,8 @@ export function stripZcodeHooks(config: ZcodeConfig): { config: ZcodeConfig; rem
   for (const event of Object.keys(events)) {
     const list = events[event];
     if (!Array.isArray(list)) continue;
-    const kept = list.filter((group) => {
-      const ours = isVibeZcodeHook(group);
-      if (ours) removed++;
-      return !ours;
-    });
+    removed += list.filter(isVibeZcodeHook).length;
+    const kept = withoutVibeHooks(list);
     if (kept.length > 0) events[event] = kept;
     else delete events[event];
   }
@@ -146,11 +156,22 @@ export function hasZcodeHooks(path = defaultConfigPath()): boolean {
   return Object.values(events).some((list) => Array.isArray(list) && list.some((g) => isVibeZcodeHook(g)));
 }
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 function readConfig(path: string): ZcodeConfig | null {
   if (!existsSync(path)) return {};
   try {
     const raw = readFileSync(path, 'utf-8').trim();
-    return raw ? (JSON.parse(raw) as ZcodeConfig) : {};
+    const value: unknown = raw ? JSON.parse(raw) : {};
+    if (!isObject(value)) return null;
+    if (value.hooks !== undefined) {
+      if (!isObject(value.hooks)) return null;
+      if (value.hooks.events !== undefined && !isObject(value.hooks.events)) return null;
+      if (value.hooks.events && !Object.values(value.hooks.events).every(Array.isArray)) return null;
+    }
+    return value as ZcodeConfig;
   } catch {
     return null;
   }
@@ -170,13 +191,12 @@ export function installZcodeHooks(path = defaultConfigPath(), silent = false): v
   }
 
   const { config, added, existing, updated } = mergeZcodeHooks(current);
-  writeConfig(path, config);
-
   if (added === 0 && updated === 0) {
     say(`\n  ${PURPLE('◆')} zcode tracking already installed\n`);
     return;
   }
 
+  writeConfig(path, config);
   const action = added > 0 ? 'installed' : 'updated';
   say(`\n  ${PURPLE('◆')} zcode tracking ${action} in ${path}\n`);
   say(`  vibe now records a session every time you use ZCode.`);

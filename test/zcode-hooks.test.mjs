@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, rmSync, statSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -142,4 +142,52 @@ test('ZCode installer writes a fresh config when none exists', (t) => {
 
   const written = JSON.parse(readFileSync(path, 'utf8'));
   assert.deepEqual(Object.keys(written.hooks.events).sort(), [...ZCODE_EVENTS].sort());
+});
+
+
+test('an unchanged install never writes the config or resets user formatting and toggles', (t) => {
+  const path = join(scratch(t), 'config.json');
+  const config = mergeZcodeHooks({ plugins: { custom: true } }).config;
+  config.hooks.enabled = true;
+  for (const event of ZCODE_EVENTS) vibeGroup(config, event).hooks[0].enabled = true;
+  const saved = JSON.stringify(config, null, '\t') + '\n\n';
+  writeFileSync(path, saved);
+  const old = new Date(Date.now() - 60000);
+  utimesSync(path, old, old);
+  const before = statSync(path);
+  installZcodeHooks(path, true);
+  assert.equal(readFileSync(path, 'utf8'), saved);
+  assert.equal(statSync(path).mtimeMs, before.mtimeMs);
+});
+
+test('uninstall and stale-command replacement preserve unrelated commands in mixed groups', () => {
+  const config = mergeZcodeHooks({}).config;
+  const group = vibeGroup(config, 'SessionStart');
+  group.matcher = 'custom';
+  group.custom = true;
+  const unrelated = { type: 'command', command: './my-start-hook', enabled: true };
+  group.hooks.push(unrelated);
+  const unchanged = structuredClone(config);
+  assert.equal(mergeZcodeHooks(config).updated, 0);
+  assert.deepEqual(config, unchanged);
+  group.hooks[0].command = '/old/node vibe __hook session-start --tool zcode';
+  assert.equal(mergeZcodeHooks(config).updated, 1);
+  assert.deepEqual(config.hooks.events.SessionStart[0], { matcher: 'custom', custom: true, hooks: [unrelated] });
+  const result = stripZcodeHooks(config);
+  assert.equal(result.removed, 4);
+  assert.deepEqual(result.config.hooks.events.SessionStart, [{ matcher: 'custom', custom: true, hooks: [unrelated] }]);
+});
+
+test('installer preserves syntactically valid but unsupported config shapes', (t) => {
+  const path = join(scratch(t), 'config.json');
+  const originalLog = console.log;
+  console.log = () => {};
+  try {
+    for (const value of [null, [], 42, { hooks: [] }, { hooks: { events: [] } }, { hooks: { events: { Stop: 'custom' } } }]) {
+      const raw = JSON.stringify(value);
+      writeFileSync(path, raw);
+      assert.doesNotThrow(() => installZcodeHooks(path, true));
+      assert.equal(readFileSync(path, 'utf8'), raw);
+    }
+  } finally { console.log = originalLog; }
 });
