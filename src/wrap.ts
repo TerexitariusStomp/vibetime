@@ -121,7 +121,8 @@ export async function wrapTool(tool: string, args: string[]): Promise<void> {
   // claim it instead. Never rejects — a fast-exiting tool must still find its
   // session to finalize.
   const ready: Promise<Session> = (async () => {
-    await refreshAndReap().catch(() => {});
+    const settled = await refreshAndReap().catch(() => 0);
+    if (settled) void flushPendingSubmissions(IN_PROGRESS_SUBMIT_BUDGET_MS).catch(() => {});
     let initial = snapshot(-1);
     let session: Session = {
       id: sessionId, tool, project, branch, startedAt,
@@ -197,21 +198,15 @@ export async function wrapTool(tool: string, args: string[]): Promise<void> {
       // reopen would keep the flush from ever sending what came after.
       await updateSession(sessionId, { ...snap, submittedAt: undefined });
 
-      if (snap.momentum === 'shipped') {
-        // Only resubmit when the payload actually changed. An idle open session
-        // otherwise reposts an identical row every 5 minutes forever, and a
-        // developer running a dozen sessions at once burned the server's rate
-        // guard on nothing, losing the submissions that did matter.
-        // A failed send leaves the signature unaccepted, so the next window
-        // resends it; the throttle alone keeps that from looping.
+      const due = lastInProgressSubmitAt === 0 || Date.now() - lastInProgressSubmitAt >= IN_PROGRESS_SUBMIT_INTERVAL_MS;
+      if (due) {
+        lastInProgressSubmitAt = Date.now();
+        // Finished work retries even while this tool has no new ship to send.
+        await flushPendingSubmissions(IN_PROGRESS_SUBMIT_BUDGET_MS).catch(() => {});
         const signature = progressSignature(snap);
-        const due = lastInProgressSubmitAt === 0 || Date.now() - lastInProgressSubmitAt >= IN_PROGRESS_SUBMIT_INTERVAL_MS;
-        if (due && signature !== acceptedSignature) {
-          lastInProgressSubmitAt = Date.now();
-          submitInProgress({ ...session, ...snap }, IN_PROGRESS_SUBMIT_BUDGET_MS).then(
-            (settled) => { if (settled) acceptedSignature = signature; },
-            () => {},
-          );
+        if (snap.momentum === 'shipped' && signature !== acceptedSignature) {
+          const settled = await submitInProgress({ ...session, ...snap }, IN_PROGRESS_SUBMIT_BUDGET_MS).catch(() => false);
+          if (settled) acceptedSignature = signature;
         }
       }
     } catch {}

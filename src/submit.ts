@@ -165,12 +165,14 @@ export function pendingSubmissionCount(): number {
 export async function flushPendingSubmissions(budgetMs: number): Promise<void> {
   const deadline = Date.now() + budgetMs;
 
-  // Renewed here when near expiry; a failed renewal falls through with the
-  // current jwt, which may still be valid.
+  // An empty queue needs no network, including token renewal. A live session
+  // can now reach this path on every due tick even when it has no new work.
+  const pending = pendingSessions().sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+  if (pending.length === 0) return;
+
+  // A failed renewal falls through with the jwt, which may still be valid.
   let auth: AuthRecord | null = await currentAuth(budgetMs);
   if (!auth) return;
-
-  const pending = pendingSessions().sort((a, b) => a.startedAt.localeCompare(b.startedAt));
 
   let renewedOnce = false;
   for (let i = 0; i < pending.length; i++) {
