@@ -206,12 +206,16 @@ export async function claimSession(
   });
 }
 
-export async function updateSession(id: string, updates: Partial<Session>): Promise<void> {
+export async function updateSession(id: string, updates: Partial<Session>, expected?: Session[]): Promise<void> {
   await withLock(() => {
     const data = readDb();
-    const session = data.sessions.find((s) => s.id === id);
-    if (session) {
-      Object.assign(session, updates);
+    const matches = data.sessions.filter((s) => s.id === id);
+    // An upload settles the complete unchanged group, including duplicates
+    // from older CLIs. Never let an old response settle a corrected version.
+    if (expected && JSON.stringify(matches) !== JSON.stringify(expected)) return;
+    const targets = expected ? matches : matches.slice(0, 1);
+    if (targets.length) {
+      for (const session of targets) Object.assign(session, updates);
       writeDb(data);
     }
   });
