@@ -191,3 +191,77 @@ test('spliced documents keep the later complete copy of each session', async (t)
   writeFileSync(DB_PATH, JSON.stringify({ sessions: [first, second] }) + JSON.stringify({ sessions: [updated] }));
   assert.deepEqual(getSessions(), [updated, second]);
 });
+
+test('a competing stale-lock breaker cannot remove the dead lock while the gate is held', async (t) => {
+  reset(t);
+  const { pid } = spawnSync(process.execPath, ['-e', '']);
+  mkdirSync(LOCK_DIR);
+  writeFileSync(join(LOCK_DIR, 'pid'), String(pid));
+  const gate = LOCK_DIR + '.break';
+  mkdirSync(gate);
+  t.after(() => rmSync(gate, { recursive: true, force: true }));
+  await assert.rejects(addSession(makeSession()), /database is busy/);
+  assert.equal(readFileSync(join(LOCK_DIR, 'pid'), 'utf8'), String(pid));
+  assert.equal(existsSync(DB_PATH), false);
+  rmSync(gate, { recursive: true });
+  await addSession(makeSession());
+  assert.equal(getSessions().length, 1);
+  assert.equal(existsSync(gate), false);
+});
+
+test('the dead holder is rechecked after taking the breaker gate', async (t) => {
+  reset(t);
+  const { pid } = spawnSync(process.execPath, ['-e', '']);
+  mkdirSync(LOCK_DIR);
+  writeFileSync(join(LOCK_DIR, 'pid'), String(pid));
+  const script = `
+    import fs from 'node:fs';
+    import { syncBuiltinESMExports } from 'node:module';
+    const mkdir = fs.mkdirSync;
+    fs.mkdirSync = (path, ...args) => {
+      if (path === ${JSON.stringify(LOCK_DIR + '.break')}) {
+        // Another contender has replaced the dead holder after our stale read.
+        fs.writeFileSync(${JSON.stringify(join(LOCK_DIR, 'pid'))}, ${JSON.stringify(String(process.pid))});
+      }
+      return mkdir(path, ...args);
+    };
+    syncBuiltinESMExports();
+    const { addSession } = await import(${JSON.stringify(dbModule)});
+    try {
+      await addSession(${JSON.stringify(makeSession())});
+      process.exitCode = 1;
+    } catch (err) {
+      if (!/database is busy/.test(err.message)) throw err;
+    }
+  `;
+  const child = spawn(process.execPath, ['--input-type=module', '-e', script], { env: process.env, stdio: ['ignore', 'ignore', 'pipe'] });
+  let stderr = '';
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  const code = await new Promise((resolve) => child.on('close', resolve));
+  assert.equal(code, 0, stderr);
+  assert.equal(readFileSync(join(LOCK_DIR, 'pid'), 'utf8'), String(process.pid));
+  assert.equal(existsSync(DB_PATH), false);
+});
+
+test('simultaneous writers recover one dead lock without losing any sessions', async (t) => {
+  reset(t);
+  const { pid } = spawnSync(process.execPath, ['-e', '']);
+  mkdirSync(LOCK_DIR);
+  writeFileSync(join(LOCK_DIR, 'pid'), String(pid));
+  const sessions = Array.from({ length: 8 }, () => makeSession());
+  const children = sessions.map((session) => spawn(process.execPath, ['--input-type=module', '-e', `
+    const { addSession } = await import(${JSON.stringify(dbModule)});
+    process.send('ready');
+    process.once('message', async () => { await addSession(${JSON.stringify(session)}); process.disconnect(); });
+  `], { env: process.env, stdio: ['ignore', 'ignore', 'pipe', 'ipc'] }));
+  const closed = children.map((child) => new Promise((resolve) => {
+    let stderr = '';
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    child.on('close', (code) => resolve({ code, stderr }));
+  }));
+  await Promise.all(children.map((child) => new Promise((resolve) => child.once('message', resolve))));
+  for (const child of children) child.send('go');
+  for (const result of await Promise.all(closed)) assert.equal(result.code, 0, result.stderr);
+  assert.deepEqual(getSessions().map((s) => s.id).sort(), sessions.map((s) => s.id).sort());
+  assert.equal(existsSync(LOCK_DIR + '.break'), false);
+});

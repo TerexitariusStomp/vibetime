@@ -75,6 +75,7 @@ export const INACTIVITY_TIMEOUT_MS = TUNABLES.inactivityTimeoutMs;
 
 const DB_PATH = join(VIBE_DIR, 'sessions.json');
 const LOCK_DIR = join(VIBE_DIR, 'sessions.lock');
+const BREAK_DIR = LOCK_DIR + '.break';
 const LOCK_STALE_MS = 10_000;
 
 function acquireLock(retried = false): boolean {
@@ -84,11 +85,16 @@ function acquireLock(retried = false): boolean {
     return true;
   } catch {
     if (retried) return false;
-    if (lockIsStale()) {
-      releaseLock();
+    if (!lockIsStale()) return false;
+    // Only one stale-lock remover may run. Recheck after taking this gate:
+    // another process may already have replaced the dead holder with a live one.
+    try { mkdirSync(BREAK_DIR); } catch { return false; }
+    try {
+      if (lockIsStale()) releaseLock();
       return acquireLock(true);
+    } finally {
+      try { rmdirSync(BREAK_DIR); } catch {}
     }
-    return false;
   }
 }
 
