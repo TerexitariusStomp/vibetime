@@ -5,10 +5,8 @@ import { currentViewer, pageCacheControl, signInEnabled } from '../web-session.j
 
 export interface StatsData {
   devs: number;
-  projects: number;
   ships: number;
-  commits: number;
-  lines: number;
+  projects: number;
   crews: number;
 }
 
@@ -20,12 +18,10 @@ async function buildStats(env: Env): Promise<StatsData> {
        FROM ship_events`,
     ).first<{ devs: number; ships: number }>(),
     env.DB.prepare(
-      `SELECT COUNT(DISTINCT user_github_id || ':' || project_hash) AS projects,
-              COALESCE(SUM(commits), 0) AS commits,
-              COALESCE(SUM(lines_added), 0) AS lines
+      `SELECT COUNT(DISTINCT user_github_id || ':' || project_hash) AS projects
        FROM sessions s
        WHERE EXISTS (SELECT 1 FROM ship_events e WHERE e.session_id = s.id)`,
-    ).first<{ projects: number; commits: number; lines: number }>(),
+    ).first<{ projects: number }>(),
     env.DB.prepare(
       `SELECT COUNT(*) AS crews
        FROM crews c
@@ -36,15 +32,13 @@ async function buildStats(env: Env): Promise<StatsData> {
 
   return {
     devs: shippedRes?.devs ?? 0,
-    projects: sessionRes?.projects ?? 0,
     ships: shippedRes?.ships ?? 0,
-    commits: sessionRes?.commits ?? 0,
-    lines: sessionRes?.lines ?? 0,
+    projects: sessionRes?.projects ?? 0,
     crews: crewRes?.crews ?? 0,
   };
 }
 
-export async function statsJson( env: Env): Promise<Response> {
+export async function statsJson(env: Env): Promise<Response> {
   const data = await buildStats(env);
   return json({
     updatedAt: new Date().toISOString(),

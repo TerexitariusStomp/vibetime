@@ -1,19 +1,21 @@
-import type { StatsData } from '../routes/stats.js';
-import { NAV_STYLE, renderNav, type NavContext } from './layout.js';
+import type { StatsData } from "../routes/stats.js";
+import { NAV_STYLE, renderNav, type NavContext } from "./layout.js";
 
 function badge(n: number): string {
-  return `<span class="num">${n.toLocaleString('en-US')}</span>`;
+  return `<span class="num">${n.toLocaleString("en-US")}</span>`;
 }
 
-export function renderStats(data: StatsData, updatedAt: Date, nav: NavContext): string {
-  const { devs, projects, ships, commits, lines, crews } = data;
-  const devWord = devs === 1 ? 'developer' : 'developers';
-  const verb = devs === 1 ? 'has' : 'have';
-  const projectWord = projects === 1 ? 'project' : 'projects';
-  const timeWord = ships === 1 ? 'time' : 'times';
-  const commitWord = commits === 1 ? 'commit' : 'commits';
-  const lineWord = lines === 1 ? 'line of code' : 'lines of code';
-  const crewWord = crews === 1 ? 'crew' : 'crews';
+export function renderStats(
+  data: StatsData,
+  updatedAt: Date,
+  nav: NavContext,
+): string {
+  const { devs, ships, projects, crews } = data;
+  const devWord = devs === 1 ? "developer" : "developers";
+  const verb = devs === 1 ? "has" : "have";
+  const projectWord = projects === 1 ? "project" : "projects";
+  const timeWord = ships === 1 ? "time" : "times";
+  const crewWord = crews === 1 ? "crew" : "crews";
 
   return `<!doctype html>
 <html lang="en">
@@ -63,14 +65,14 @@ export function renderStats(data: StatsData, updatedAt: Date, nav: NavContext): 
 </head>
 <body>
 <main>
-  ${renderNav('stats', nav)}
+  ${renderNav("stats", nav)}
   <section class="stage" aria-label="all-time stats">
     <p class="statement">
-      ${badge(devs)} ${devWord} in ${badge(crews)} ${crewWord} ${verb} worked on ${badge(projects)} ${projectWord}, shipped ${badge(ships)} ${timeWord} across ${badge(commits)} ${commitWord}, and written ${badge(lines)} ${lineWord} on Vibetime.
+      ${badge(devs)} ${devWord} ${verb} shipped ${badge(ships)} ${timeWord} across ${badge(projects)} ${projectWord} on vibetime. ${badge(crews)} ${crewWord} and counting.
     </p>
   </section>
   <footer>
-    <span>all-time · updated ${updatedAt.toISOString().slice(0, 16).replace('T', ' ')}Z</span>
+    <span>all-time · updated ${updatedAt.toISOString().slice(0, 16).replace("T", " ")}Z</span>
     <span><a href="https://github.com/iamnotstatic/vibetime">github.com/iamnotstatic/vibetime</a> · <code>npm i -g vibetime-cli</code></span>
   </footer>
 </main>
