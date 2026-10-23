@@ -87,6 +87,11 @@ export const NAV_STYLE = `
   @media (max-width: 420px) {
     .nav .brand-word { display: none; }
   }
+  @media (max-width: 360px) {
+    .nav { gap: 8px; }
+    .nav .places a { padding: 4px 3px; font-size: 12px; }
+    .nav .account { gap: 8px; }
+  }
 `;
 
 export function renderNav(place: NavPlace, ctx: NavContext): string {
