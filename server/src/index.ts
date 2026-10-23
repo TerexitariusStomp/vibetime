@@ -2,6 +2,7 @@ import type { Env } from './env.js';
 import { exchangeAuth, refreshAuth, revokeAuth } from './routes/auth.js';
 import { submitSession } from './routes/sessions.js';
 import { leaderboardJson, leaderboardHtml } from './routes/leaderboard.js';
+import { statsJson, statsHtml } from './routes/stats.js';
 import { parseProfileHandle, profileHtml } from './routes/profile.js';
 import { clientConfig } from './routes/config.js';
 import { githubCallback, githubStart, signOut } from './routes/web-auth.js';
@@ -93,6 +94,10 @@ export default {
           return withCors(await leaderboardJson(request, env));
         case 'GET /leaderboard':
           return await leaderboardHtml(request, env);
+        case 'GET /stats.json':
+          return withCors(await statsJson(env));
+        case 'GET /stats':
+          return await statsHtml(request, env);
         case 'GET /favicon.svg':
         case 'GET /favicon.ico':
           return faviconResponse();
