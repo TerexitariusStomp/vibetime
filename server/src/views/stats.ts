@@ -54,6 +54,7 @@ export function renderStats(
   footer { color: #444; font-size: 11px; margin-top: auto; padding-top: 16px; border-top: 1px solid #141414; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
   footer a { color: #666; text-decoration: none; }
   footer a:hover { color: #a78bfa; }
+  footer code { white-space: nowrap; }
   ${NAV_STYLE}
   @media (max-width: 600px) {
     body { padding: 20px 12px; }
