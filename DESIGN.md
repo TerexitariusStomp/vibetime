@@ -107,6 +107,12 @@ shape in the top bar, the footer, notices and the favicon.
 | `.note-good` `.note-bad` | the result of a form post |
 | `.empty` `.notice` | empty states and 404s |
 | `.back` via `renderBack()` | the way back to where you came from |
+| `.hero` `.display` `.lead` | the home page's opening: one short line, what it does, the install command. `/` shows it on a first visit only; after that `/` goes to the leaderboard |
+| `.endcard` `.mbar` | the CLI endcard drawn in HTML, with its ten-segment tier bar |
+| `.kpis` `.kpi` | a row of headline numbers that links to the page behind them |
+| `.sec-h` | a section title with an optional "see all" link |
+| `.split` `.mini` | short ranked lists side by side |
+| `.tiers` `.trio` | a table of rules; three short facts in a row |
 | `.foot` | footer |
 
 If a new page needs something that is not here, add it to `SITE_CSS` with

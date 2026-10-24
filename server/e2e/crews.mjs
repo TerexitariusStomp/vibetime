@@ -250,6 +250,17 @@ const dee = await signIn('dee');
 {
   const lb = await (await anon.get('/leaderboard')).text();
   check('the leaderboard bar links to crews', lb.includes('href="/crews"'));
+  const home = await anon.get('/');
+  const homePage = await home.text();
+  const seen = /vt_seen=(\d+)/.exec(home.headers.get('set-cookie') ?? '')?.[1];
+  check('a first visit to / gets the home page: what vibetime is, how to install it, a link to the leaderboard',
+    home.status === 200 && !!seen && homePage.includes('track what you vibe.') && homePage.includes('npm i -g vibetime-cli') && homePage.includes('href="/leaderboard"'));
+  const sameVisit = await req('/', { headers: { cookie: `vt_seen=${seen}` } });
+  const laterVisit = await req('/', { headers: { cookie: `vt_seen=${Date.now() - 31 * 60 * 1000}` } });
+  const signedIn = await ada.get('/');
+  check('within the first visit / keeps the home page; later visits and signed-in people go to the leaderboard',
+    sameVisit.status === 200 && laterVisit.status === 302 && loc(laterVisit) === '/leaderboard' && signedIn.status === 302 && loc(signedIn) === '/leaderboard',
+    `${sameVisit.status} ${laterVisit.status} ${signedIn.status}`);
   check('the leaderboard tells people crews exist, with a link to them', /<a class="callout" href="\/crews">[\s\S]*?crews[\s\S]*?<\/a>/.test(lb));
   const js = await anon.get('/assets/copy.js');
   check('the copy script is served as JavaScript from the site itself', js.status === 200 && js.headers.get('content-type').startsWith('text/javascript'));

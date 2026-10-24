@@ -3,6 +3,7 @@ import { exchangeAuth, refreshAuth, revokeAuth } from './routes/auth.js';
 import { submitSession } from './routes/sessions.js';
 import { leaderboardJson, leaderboardHtml } from './routes/leaderboard.js';
 import { statsJson, statsHtml } from './routes/stats.js';
+import { homeHtml } from './routes/home.js';
 import { parseProfileHandle, profileHtml } from './routes/profile.js';
 import { clientConfig } from './routes/config.js';
 import { githubCallback, githubStart, setTheme, signOut } from './routes/web-auth.js';
@@ -112,7 +113,7 @@ export default {
         case 'GET /og.png':
           return ogImageResponse();
         case 'GET /':
-          return Response.redirect(new URL('/leaderboard', request.url).toString(), 302);
+          return await homeHtml(request, env);
         default:
           return withCors(error(404, 'not found'));
       }
