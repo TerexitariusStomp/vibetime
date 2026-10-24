@@ -1,5 +1,5 @@
 import type { StatsData } from "../routes/stats.js";
-import { NAV_STYLE, renderNav, type NavContext } from "./layout.js";
+import { NAV_STYLE, renderMeta, renderNav, type NavContext } from "./layout.js";
 
 function badge(n: number): string {
   return `<span class="num">${n.toLocaleString("en-US")}</span>`;
@@ -24,6 +24,7 @@ export function renderStats(
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>vibetime stats</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+${renderMeta(nav, "vibetime stats", `${devs.toLocaleString("en-US")} ${devWord} ${verb} shipped ${ships.toLocaleString("en-US")} ${timeWord} across ${projects.toLocaleString("en-US")} ${projectWord} on vibetime. ${crews} ${crewWord} and counting.`)}
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }

@@ -1,5 +1,5 @@
 import type { ProfileData, ProfileHeatmapDay } from '../routes/profile.js';
-import { BACK_STYLE, NAV_STYLE, crewInitials, crewShade, escapeHtml, renderBack, renderNav, type BackLink, type NavContext } from './layout.js';
+import { BACK_STYLE, NAV_STYLE, crewInitials, crewShade, escapeHtml, renderBack, renderMeta, renderNav, type BackLink, type NavContext } from './layout.js';
 import type { Membership } from '../crews.js';
 
 function relativeTime(iso: string, now: Date): string {
@@ -79,6 +79,12 @@ const SHARED_STYLE = `
   }
 `;
 
+function profileDescription(data: ProfileData): string {
+  if (data.all.ships === 0) return `@${data.handle} on vibetime. nothing shipped yet.`;
+  const rank = data.weekRank != null ? `#${data.weekRank} this week. ` : '';
+  return `${rank}${data.all.ships.toLocaleString('en-US')} ship${data.all.ships === 1 ? '' : 's'} all time, measured from git.`;
+}
+
 export function renderProfile(data: ProfileData, updatedAt: Date, nav: NavContext, crews: Membership[], back: BackLink, ranks: Map<string, number>): string {
   const crewChips = crews.length === 0 ? '' : `<div class="chips">${crews.map((c) =>
     `<a class="chip" href="/crew/${escapeHtml(c.slug)}"><span class="chip-mono" style="background:${crewShade(c.slug)}" aria-hidden="true">${escapeHtml(crewInitials(c.name))}</span>${escapeHtml(c.name)}${ranks.has(c.slug) ? ` <span class="chip-rank">#${ranks.get(c.slug)}</span>` : ''}</a>`).join('')}</div>`;
@@ -109,6 +115,7 @@ export function renderProfile(data: ProfileData, updatedAt: Date, nav: NavContex
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>@${handle} · vibetime</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+${renderMeta(nav, `@${data.handle} on vibetime`, profileDescription(data))}
 <style>${SHARED_STYLE}</style>
 </head>
 <body>
