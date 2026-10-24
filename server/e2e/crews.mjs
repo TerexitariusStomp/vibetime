@@ -260,6 +260,8 @@ const dee = await signIn('dee');
     const board = await (await anon.get('/leaderboard')).text();
     check('the leaderboard says what a ship is above the fold and links to the full rule', board.includes('a ship is a commit with more than 50 lines') && board.includes('href="#ship"') && board.includes('id="ship"'));
   }
+  check('the home page leads with the install on a laptop and the leaderboard on a phone, where a CLI cannot be installed',
+    /<button class="btn btn-primary hide-sm"[^>]*data-copy="npm i -g vibetime-cli/.test(homePage) && homePage.includes('<a class="btn btn-primary show-sm" href="/leaderboard">'));
   check('the logo in the bar goes home', (await (await anon.get('/leaderboard')).text()).includes('<a class="brand" href="/"'));
   const signedInPage = signedIn.status === 200 ? await signedIn.text() : '';
   check('/ shows the home page to everyone, signed in or not, with the signed-in bar for people who are',

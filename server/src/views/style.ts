@@ -111,11 +111,17 @@ main[aria-busy="true"] > :not(.head):not(.tabs) { opacity: .5; transition-delay:
 .btn-sm { height: 28px; padding: 0 10px; font-size: 12px; gap: 6px; }
 .btn-icon { width: 36px; padding: 0; }
 .btn-block { width: 100%; height: 44px; font-size: 14px; }
+.show-sm { display: none; }
 form.inline { display: inline; margin: 0; }
 .input { height: 40px; width: 100%; min-width: 0; padding: 0 12px; border-radius: var(--r-2); border: 1px solid var(--line-strong); background: var(--surface-1); color: var(--text); font: inherit; font-size: 14px; }
 .input:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
 .copy-done, .done .copy-idle { display: none; }
 .done .copy-done { display: inline; }
+/* Both labels hold the space, so the button keeps its width when it says copied. */
+.swap { display: inline-grid; justify-items: start; }
+.swap > span { grid-area: 1 / 1; }
+.swap > .copy-done, .done .swap > .copy-idle { display: inline; visibility: hidden; }
+.done .swap > .copy-done { visibility: visible; }
 
 /* page head and window switcher */
 .head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 36px 0 24px; }
@@ -382,6 +388,7 @@ tr.you td, tbody tr.you:hover td { background: var(--accent-wash); border-top: 1
   .tab { flex: 1; height: 36px; padding: 0 6px; }
   .head h1 { font-size: 20px; }
   .hide-sm { display: none; }
+  .show-sm { display: inline-flex; }
   th { display: none; }
   td { padding: 12px 4px; }
   td:nth-child(2) { width: 100%; max-width: 0; }

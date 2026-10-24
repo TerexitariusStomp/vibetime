@@ -97,6 +97,7 @@ shape in the top bar, the footer, notices and the favicon.
 | `.head` `.sub` | page header: title and a one-line summary |
 | `.tabs` `.tab` `.tab-active` | time window switcher, made of links |
 | `.btn` with `-primary` `-ghost` `-danger` `-quiet` `-sm` `-icon` `-block` | buttons and button-styled links |
+| `.hide-sm` `.show-sm` | hidden on phones; shown only on phones |
 | `.input` `.field` `.hint` | form controls |
 | `table` `td.rank` `td.ships` `td.heat` `td.last` `.who` `.nm` `.meta` `.meta-sm` | ranked tables. `.meta-sm` repeats the hidden columns on phones |
 | `tr.you` `.tag-you` | your own row and label. On the leaderboard (`.board`) it stays pinned to the bottom of the screen until you reach it |
