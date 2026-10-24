@@ -1,4 +1,4 @@
-import type { Viewer } from '../web-session.js';
+import type { Theme, Viewer } from '../web-session.js';
 import { COPY_SCRIPT_URL, FONT_URL, SITE_CSS_URL, gem, icon } from './style.js';
 
 // A crew keeps the same shade everywhere it appears, so it reads as one thing
@@ -36,6 +36,7 @@ export interface NavContext {
   path: string;
   // Link previews only resolve absolute URLs.
   origin: string;
+  theme: Theme;
 }
 
 export function renderMeta(nav: NavContext, title: string, description: string): string {
@@ -114,10 +115,12 @@ export function renderNav(place: NavPlace, ctx: NavContext): string {
   } else if (ctx.signInEnabled) {
     account = `<a class="btn btn-sm" href="/auth/github/start?next=${encodeURIComponent(ctx.path)}">${icon('github')}sign in</a>`;
   }
+  const other = ctx.theme === 'light' ? 'dark' : 'light';
+  const theme = `<form method="post" action="/theme"><input type="hidden" name="next" value="${escapeHtml(ctx.path)}"><button class="btn btn-ghost btn-sm btn-icon" type="submit" name="theme" value="${other}" aria-label="switch to ${other}">${icon(other === 'light' ? 'sun' : 'moon')}</button></form>`;
   return `<nav class="nav" aria-label="vibetime"><div class="wrap nav-in">
     <a class="brand" href="/leaderboard" aria-label="vibetime">${gem(22)}<span>vibetime</span></a>
     <div class="places">${place_('leaderboard', '/leaderboard', 'leaderboard', 'trophy')}${place_('crews', '/crews', 'crews', 'users')}${place_('stats', '/stats', 'stats', 'chart')}</div>
-    <div class="account">${account}</div>
+    <div class="account">${theme}${account}</div>
   </div></nav>`;
 }
 
@@ -139,7 +142,7 @@ export interface PageOptions {
 // the top bar and the footer. Pages only bring their body.
 export function renderPage({ title, place, nav, body, preview }: PageOptions): string {
   return `<!doctype html>
-<html lang="en">
+<html lang="en" data-theme="${nav.theme}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -164,7 +167,7 @@ export function renderNotice(title: string, body: string, action?: { href: strin
   return renderPage({
     title: `${title} · vibetime`,
     place: null,
-    nav: { viewer: null, signInEnabled: false, path: '/leaderboard', origin: '' },
+    nav: { viewer: null, signInEnabled: false, path: '/leaderboard', origin: '', theme: 'dark' },
     body: `<div class="notice">
     ${gem(56)}
     <h1>${escapeHtml(title)}</h1>

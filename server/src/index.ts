@@ -5,7 +5,7 @@ import { leaderboardJson, leaderboardHtml } from './routes/leaderboard.js';
 import { statsJson, statsHtml } from './routes/stats.js';
 import { parseProfileHandle, profileHtml } from './routes/profile.js';
 import { clientConfig } from './routes/config.js';
-import { githubCallback, githubStart, signOut } from './routes/web-auth.js';
+import { githubCallback, githubStart, setTheme, signOut } from './routes/web-auth.js';
 import {
   createCrewPost, crewConfirmHtml, crewHtml, crewJoinPost, crewLeavePost, crewSettingsPost, crewsHtml,
   invitePost, inviteHtml, lowercaseCrewRedirect, newCrewHtml, parseCrewPath, parseInvitePath,
@@ -74,6 +74,8 @@ export default {
           return await githubCallback(request, env);
         case 'POST /auth/signout':
           return await signOut(request, env);
+        case 'POST /theme':
+          return await setTheme(request);
         case 'GET /crews':
           return await crewsHtml(request, env);
         case 'GET /crews/new':

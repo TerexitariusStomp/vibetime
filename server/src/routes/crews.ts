@@ -9,7 +9,7 @@ import {
   MESSAGES, renderConfirm, renderCreate, renderCrew, renderCrewBoard, renderCrewMissing, renderInvite, renderInviteGone,
 } from '../views/crews.js';
 import { backFrom, renderNotice, type NavContext } from '../views/layout.js';
-import { currentViewer, pageCacheControl, signInEnabled, webOrigin, type Viewer } from '../web-session.js';
+import { currentViewer, pageCacheControl, signInEnabled, themeOf, webOrigin, type Viewer } from '../web-session.js';
 import { sameOrigin } from './web-auth.js';
 
 function page(body: string, viewer: Viewer | null, status = 200, byReferer = false): Response {
@@ -42,7 +42,7 @@ function knownMessage(url: URL): string | null {
 async function context(request: Request, env: Env): Promise<{ url: URL; viewer: Viewer | null; nav: NavContext }> {
   const url = new URL(request.url);
   const viewer = await currentViewer(request, env);
-  return { url, viewer, nav: { viewer, signInEnabled: signInEnabled(env), path: `${url.pathname}${url.search}`, origin: webOrigin(env) } };
+  return { url, viewer, nav: { viewer, signInEnabled: signInEnabled(env), path: `${url.pathname}${url.search}`, origin: webOrigin(env), theme: themeOf(request) } };
 }
 
 async function formValue(request: Request, key: string): Promise<string | null> {

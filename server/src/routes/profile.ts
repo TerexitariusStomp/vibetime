@@ -1,6 +1,6 @@
 import type { Env } from '../env.js';
 import { PAGE_CSP, html } from '../http.js';
-import { currentViewer, pageCacheControl, signInEnabled, webOrigin } from '../web-session.js';
+import { currentViewer, pageCacheControl, signInEnabled, themeOf, webOrigin } from '../web-session.js';
 import { backFrom } from '../views/layout.js';
 import { renderProfile, renderProfileNotFound } from '../views/profile.js';
 import { crewBoard, crewsOf } from '../crews.js';
@@ -156,7 +156,7 @@ const PAGE_HEADERS = {
 
 export async function profileHtml(request: Request, env: Env, handle: string): Promise<Response> {
   const [data, viewer] = await Promise.all([buildProfile(env, handle), currentViewer(request, env)]);
-  const nav = { viewer, signInEnabled: signInEnabled(env), path: new URL(request.url).pathname, origin: webOrigin(env) };
+  const nav = { viewer, signInEnabled: signInEnabled(env), path: new URL(request.url).pathname, origin: webOrigin(env), theme: themeOf(request) };
   const headers = { ...PAGE_HEADERS, ...pageCacheControl(viewer), 'vary': 'cookie, referer' };
   const back = backFrom(request, { href: '/leaderboard', label: 'leaderboard' });
   if (!data) {

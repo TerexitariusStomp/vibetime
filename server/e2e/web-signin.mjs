@@ -203,6 +203,15 @@ if (offPort) {
     !lb.includes('sign in') && !lb.includes('/auth/github/start') && start.status === 404 && !withCookie.includes('sign out'));
 }
 
+{
+  const res = await req('/theme', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: `theme=light&next=${encodeURIComponent('/stats?x=1')}` });
+  const theme = cookieValue(res, 'vt_theme');
+  check('the theme switch sets light and goes back to the page', res.status === 303 && res.headers.get('location') === '/stats?x=1' && theme === 'light',
+    `${res.status} ${res.headers.get('location')} ${theme}`);
+  const light = await (await req('/stats', { headers: { cookie: `vt_theme=${theme}` } })).text();
+  const plain = await (await req('/stats')).text();
+  check('pages render in the theme the cookie names, dark by default', light.includes('<html lang="en" data-theme="light">') && plain.includes('<html lang="en" data-theme="dark">'));
+}
 github.close();
 console.log(failed === 0 ? '\nall passed' : `\n${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);

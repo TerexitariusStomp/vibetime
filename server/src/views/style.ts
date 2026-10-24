@@ -34,6 +34,19 @@ export const SITE_CSS = `
   --t-fast: 120ms; --t-slow: 320ms; --ease-out: cubic-bezier(.2, .8, .2, 1);
   color-scheme: dark;
 }
+:root[data-theme="light"] {
+  --bg: #FBFAFD; --surface-1: #F4F2F8; --surface-2: #ECE9F2; --surface-3: #E1DDEA;
+  --line: #E6E2EE; --line-strong: #CEC8DA;
+  --text: #16141D; --text-2: #4D485C; --text-3: #6A657C;
+  --accent: #6D28D9; --accent-fill: #7C3AED; --accent-fill-hover: #6D28D9; --on-accent: #FFFFFF;
+  --accent-wash: #F1ECFE; --accent-line: #D8CBFA;
+  --good: #166534; --good-wash: #EAF8EF; --good-line: #B9E3C8;
+  --warn: #92580A; --warn-wash: #FDF6E3; --warn-line: #EED9A4;
+  --bad: #C42B2B; --bad-wash: #FDF0EF; --bad-line: #F2C6C2;
+  --heat-0: #ECE9F2; --heat-1: #DCD2FB; --heat-2: #B8A3F6; --heat-3: #8B6CF0; --heat-4: #6D28D9;
+  --seg-track: #F4F2F8; --seg-on: #FFFFFF;
+  color-scheme: light;
+}
 @font-face { font-family: "Geist Mono"; src: url(${FONT_URL}) format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
 @view-transition { navigation: auto; }
 * { box-sizing: border-box; }
@@ -357,6 +370,8 @@ const ICONS = {
   link: '<path d="M8.5 11.5l3-3M9 6.5l1-1a3 3 0 0 1 4.25 4.25l-1 1M11 13.5l-1 1a3 3 0 0 1-4.25-4.25l1-1"/>',
   alert: '<path d="M10 3.5 17.25 16H2.75z"/><path d="M10 8.5v3.25M10 14v.01"/>',
   'circle-check': '<circle cx="10" cy="10" r="6.75"/><path d="M7 10.25 9 12.25 13 8"/>',
+  sun: '<circle cx="10" cy="10" r="3.25"/><path d="M10 2.75v1.5M10 15.75v1.5M2.75 10h1.5M15.75 10h1.5M4.87 4.87l1.06 1.06M14.07 14.07l1.06 1.06M4.87 15.13l1.06-1.06M14.07 5.93l1.06-1.06"/>',
+  moon: '<path d="M10 2.5a5 5 0 0 0 7.5 7.5 7.5 7.5 0 1 1-7.5-7.5Z"/>',
   github: '<path fill="currentColor" stroke="none" transform="translate(2 2)" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>',
 } as const;
 export type IconName = keyof typeof ICONS;

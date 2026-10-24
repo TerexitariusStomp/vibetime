@@ -4,7 +4,7 @@ import { b64url } from '../jwt.js';
 import { sha256Hex, upsertGithubUser } from './auth.js';
 import { renderNotice } from '../views/layout.js';
 import {
-  SESSION_COOKIE, SESSION_TTL_MS, cookie, readCookie, safeNext, signInEnabled, webOrigin,
+  SESSION_COOKIE, SESSION_TTL_MS, THEME_COOKIE, cookie, readCookie, safeNext, signInEnabled, webOrigin, type Theme,
 } from '../web-session.js';
 
 const STATE_COOKIE = 'vt_oauth';
@@ -124,6 +124,20 @@ export function sameOrigin(request: Request): boolean {
   const origin = request.headers.get('origin');
   if (origin) return origin === new URL(request.url).origin;
   return request.headers.get('sec-fetch-site') === 'same-origin';
+}
+
+// Nothing to protect here, so no origin check: the worst a cross-site form can
+// do is change someone's colors.
+export async function setTheme(request: Request): Promise<Response> {
+  let next = '/leaderboard';
+  let theme: Theme = 'dark';
+  try {
+    const form = await request.formData();
+    const value = form.get('next');
+    next = safeNext(typeof value === 'string' ? value : null);
+    if (form.get('theme') === 'light') theme = 'light';
+  } catch { /* keep the defaults */ }
+  return redirect(next, [cookie(THEME_COOKIE, theme, 365 * 24 * 60 * 60)], 303);
 }
 
 export async function signOut(request: Request, env: Env): Promise<Response> {

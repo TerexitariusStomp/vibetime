@@ -33,6 +33,14 @@ export function cookie(name: string, value: string, maxAgeSeconds: number, path 
   return `${name}=${value}; Max-Age=${maxAgeSeconds}; Path=${path}; HttpOnly; Secure; SameSite=Lax`;
 }
 
+// Dark unless the reader picked light. The server reads it so the page arrives
+// in the right colors with no script running before paint.
+export const THEME_COOKIE = 'vt_theme';
+export type Theme = 'dark' | 'light';
+export function themeOf(request: Request): Theme {
+  return readCookie(request, THEME_COOKIE) === 'light' ? 'light' : 'dark';
+}
+
 // Only a path on this site, so the sign-in round trip can never be turned into
 // a redirect to somewhere else.
 export function safeNext(value: string | null | undefined): string {
