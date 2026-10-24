@@ -1,7 +1,7 @@
 import type { Env } from '../env.js';
-import { html, json } from '../http.js';
+import { PAGE_CSP, html, json } from '../http.js';
 import { renderStats } from '../views/stats.js';
-import { currentViewer, pageCacheControl, signInEnabled, webOrigin } from '../web-session.js';
+import { currentViewer, pageCacheControl, signInEnabled, themeOf, webOrigin } from '../web-session.js';
 
 export interface StatsData {
   devs: number;
@@ -49,11 +49,11 @@ export async function statsJson(env: Env): Promise<Response> {
 export async function statsHtml(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const [data, viewer] = await Promise.all([buildStats(env), currentViewer(request, env)]);
-  const nav = { viewer, signInEnabled: signInEnabled(env), path: `${url.pathname}${url.search}`, origin: webOrigin(env) };
+  const nav = { viewer, signInEnabled: signInEnabled(env), path: `${url.pathname}${url.search}`, origin: webOrigin(env), theme: themeOf(request) };
   return html(renderStats(data, new Date(), nav), {
     headers: {
       ...pageCacheControl(viewer),
-      'content-security-policy': "default-src 'self'; img-src https://avatars.githubusercontent.com; style-src 'unsafe-inline'; base-uri 'self'; form-action 'self'",
+      'content-security-policy': PAGE_CSP,
       'referrer-policy': 'strict-origin-when-cross-origin',
       'x-content-type-options': 'nosniff',
     },

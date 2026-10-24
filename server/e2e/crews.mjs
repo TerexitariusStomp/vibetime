@@ -264,7 +264,7 @@ const dee = await signIn('dee');
 {
   const backOf = async (path, referer) => {
     const res = await req(path, referer ? { headers: { referer } } : {});
-    const m = /<a class="back" href="([^"]*)">← ([^<]*)<\/a>/.exec(await res.text());
+    const m = /<a class="back" href="([^"]*)"><svg[\s\S]*?<\/svg>([^<]*)<\/a>/.exec(await res.text());
     return { href: m?.[1].replace(/&amp;/g, '&'), label: m?.[2], vary: res.headers.get('vary') };
   };
   const p = `/@${ada.handle}`;
@@ -309,6 +309,13 @@ const dee = await signIn('dee');
   check('profile chips show the crew\'s rank this week', /#\d+/.test(chips), chips.slice(0, 200));
   const form = await (await owner.get('/crews/new')).text();
   check('the create form shows the address the crew will get', form.includes('id="slug-preview"') && form.includes('127.0.0.1:' + port + '/crew/…'));
+}
+
+{
+  const emo = await signIn('emoji');
+  const s = loc(await emo.post('/crews', { name: `m${run} 😎` })).split('?')[0].slice('/crew/'.length);
+  const page = await (await emo.get(`/crew/${s}`)).text();
+  check('crew initials keep an emoji whole', page.includes('>M😎<') && !page.includes('�'));
 }
 
 github.close();

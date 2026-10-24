@@ -1,5 +1,5 @@
 import type { StatsData } from "../routes/stats.js";
-import { NAV_STYLE, formatCount, renderMeta, renderNav, type NavContext } from "./layout.js";
+import { formatCount, renderPage, type NavContext } from "./layout.js";
 
 function badge(n: number): string {
   return `<span class="num">${formatCount(n)}</span>`;
@@ -17,67 +17,25 @@ export function renderStats(
   const timeWord = ships === 1 ? "time" : "times";
   const crewWord = crews === 1 ? "crew" : "crews";
 
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>vibetime stats</title>
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
-${renderMeta(nav, "vibetime stats", `${formatCount(devs)} ${devWord} ${verb} shipped ${formatCount(ships)} ${timeWord} across ${formatCount(projects)} ${projectWord} on vibetime. ${formatCount(crews)} ${crewWord} and counting.`)}
-<style>
-  :root { color-scheme: dark; }
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: #0a0a0a; color: #e5e5e5; padding: 32px 16px; min-height: 100vh; display: flex; flex-direction: column; }
-  main { max-width: 760px; width: 100%; margin: 0 auto; flex: 1; display: flex; flex-direction: column; }
-  .stage { flex: 1; display: flex; align-items: center; padding: 72px 0 88px; }
-  .statement {
-    margin: 0;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: clamp(22px, 3.4vw, 30px);
-    font-weight: 400;
-    line-height: 1.7;
-    letter-spacing: -0.01em;
-    color: #e5e5e5;
-  }
-  .num {
-    display: inline-block;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
-    color: #a78bfa;
-    background: #15101f;
-    padding: 2px 10px;
-    border-radius: 6px;
-    line-height: 1.35;
-    letter-spacing: 0;
-  }
-  footer { color: #444; font-size: 11px; margin-top: auto; padding-top: 16px; border-top: 1px solid #141414; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-  footer a { color: #666; text-decoration: none; }
-  footer a:hover { color: #a78bfa; }
-  footer code { white-space: nowrap; }
-  ${NAV_STYLE}
-  @media (max-width: 600px) {
-    body { padding: 20px 12px; }
-    .stage { padding: 48px 0 64px; }
-    .statement { line-height: 1.72; }
-    .num { padding: 2px 8px; }
-  }
-</style>
-</head>
-<body>
-<main>
-  ${renderNav("stats", nav)}
-  <section class="stage" aria-label="all-time stats">
+  return renderPage({
+    title: "vibetime stats",
+    place: "stats",
+    nav,
+    preview: {
+      title: "vibetime stats",
+      description: `${formatCount(devs)} ${devWord} ${verb} shipped ${formatCount(ships)} ${timeWord} across ${formatCount(projects)} ${projectWord} on vibetime. ${formatCount(crews)} ${crewWord} and counting.`,
+    },
+    body: `<section aria-label="all-time stats">
     <p class="statement">
       ${badge(devs)} ${devWord} ${verb} shipped ${badge(ships)} ${timeWord} across ${badge(projects)} ${projectWord} on vibetime. ${badge(crews)} ${crewWord} and counting.
     </p>
   </section>
-  <footer>
-    <span>all-time · updated ${updatedAt.toISOString().slice(0, 16).replace("T", " ")}Z</span>
-    <span><a href="https://github.com/iamnotstatic/vibetime">github.com/iamnotstatic/vibetime</a> · <code>npm i -g vibetime-cli</code></span>
-  </footer>
-</main>
-</body>
-</html>`;
+  <dl class="defs">
+    <div><dt>developers</dt><dd>signed-in people with at least one ship</dd></div>
+    <div><dt>ships</dt><dd>sessions that landed a commit plus more than 50 lines or more than 3 files</dd></div>
+    <div><dt>projects</dt><dd>repos with at least one ship, told apart by a hash of their name</dd></div>
+    <div><dt>crews</dt><dd>crews with at least one current member</dd></div>
+  </dl>
+  <div class="board-foot"><span>all time · updated ${updatedAt.toISOString().slice(11, 16)} utc</span></div>`,
+  });
 }

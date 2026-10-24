@@ -1,5 +1,6 @@
 import type { HeatmapDay, LeaderboardData } from '../routes/leaderboard.js';
-import { NAV_STYLE, escapeHtml, formatCount, renderMeta, renderNav, type NavContext } from './layout.js';
+import { avatar, command, escapeHtml, formatCount, renderPage, type NavContext } from './layout.js';
+import { icon } from './style.js';
 
 type Window = 'week' | 'month' | 'all';
 
@@ -15,12 +16,31 @@ export function relativeTime(iso: string, now: Date): string {
   return iso.slice(0, 10);
 }
 
+// Ships a day, in five bands: 0, 1-2, 3-5, 6-11, 12+.
+function heatLevel(n: number): number {
+  return n === 0 ? 0 : n <= 2 ? 1 : n <= 5 ? 2 : n <= 11 ? 3 : 4;
+}
+
 export function heatmapCells(recent: HeatmapDay[]): string {
   return recent.map(({ day, n }) => {
-    const cls = n === 0 ? 'cell-0' : n === 1 ? 'cell-1' : n <= 3 ? 'cell-2' : 'cell-3';
     const noun = n === 1 ? 'ship' : 'ships';  // heatmap intensity stays per-ship
-    return `<span class="cell ${cls}" title="${escapeHtml(day)} · ${n} ${noun}" aria-hidden="true"></span>`;
+    return `<span class="cell cell-${heatLevel(n)}" title="${escapeHtml(day)} · ${n} ${noun}"></span>`;
   }).join('');
+}
+
+// The squares with a text equivalent. A second copy on the same row (the phone
+// layout shows them under the name) is hidden from screen readers.
+export function heatmap(recent: HeatmapDay[], copy = false, large = false): string {
+  const days = recent.filter((d) => d.n > 0).length;
+  const label = copy ? 'aria-hidden="true"' : `role="img" aria-label="shipped on ${days} of the last ${recent.length} days"`;
+  return `<span class="heatmap${large ? ' heatmap-lg' : ''}" ${label}>${heatmapCells(recent)}</span>`;
+}
+
+export const LEGEND = `<span class="legend" aria-hidden="true">less <span class="heatmap">${[0, 1, 2, 3, 4].map((l) => `<span class="cell cell-${l}"></span>`).join('')}</span> more</span>`;
+
+// A ship from the last few minutes gets a pulse beside its time.
+export function liveDot(iso: string | null, now: Date): string {
+  return iso && now.getTime() - Date.parse(iso) < 15 * 60_000 ? '<i class="live" title="shipped in the last 15 minutes"></i>' : '';
 }
 
 function tab(label: string, value: Window, active: Window): string {
@@ -52,148 +72,55 @@ export function renderLeaderboard(data: LeaderboardData, window: Window, updated
   const sessionNoun = sessionCount === 1 ? 'ship' : 'ships';
   const rangeLabel = windowStart ? ` <span class="range">· ${windowRange(windowStart, updatedAt)}</span>` : '';
   const scaleLine = entries.length === 0
-    ? ''
+    ? `<p class="sub">ranked by what you ship</p>`
     : `<p class="scale"><strong>${formatCount(devCount)}</strong> ${devNoun} · <strong>${formatCount(sessionCount)}</strong> ${sessionNoun} ${escapeHtml(SCALE_WINDOW_LABEL[window])}${rangeLabel}</p>`;
   const tableRows = entries.length === 0
-    ? `<tr><td colspan="5" class="empty">
-        <div class="empty-msg">nothing shipped. yet.</div>
-        <pre class="empty-cmd">npm i -g vibetime-cli
-vibe init
-vibe login</pre>
-      </td></tr>`
+    ? `<tr><td colspan="5"><div class="empty">
+        <p><b>nothing shipped. yet.</b><br>set up vibetime and your next session counts.</p>
+        ${command(['npm i -g vibetime-cli', 'vibe init', 'vibe login'])}
+      </div></td></tr>`
     : entries.map((e) => {
         const handle = escapeHtml(e.handle);
-        const avatar = e.avatarUrl
-          ? `<img src="${escapeHtml(e.avatarUrl)}" alt="" width="24" height="24" loading="lazy">`
-          : `<span class="avatar-fallback" aria-hidden="true"></span>`;
         const rankClass = e.rank <= 3 ? `rank rank-top` : `rank`;
         const isViewer = nav.viewer !== null && nav.viewer.handle.toLowerCase() === e.handle.toLowerCase();
+        const last = `${liveDot(e.lastShippedAt, updatedAt)}${escapeHtml(relativeTime(e.lastShippedAt, updatedAt))}`;
         return `<tr${isViewer ? ' class="you"' : ''}>
           <td class="${rankClass}">${e.rank}</td>
-          <td class="who"><a href="/@${handle}">${avatar}<span>${handle}</span></a>${isViewer ? '<span class="you-tag">you</span>' : ''}</td>
-          <td class="shipped">${formatCount(e.shippedCount)}<span class="days">${e.dayCount} day${e.dayCount === 1 ? '' : 's'}</span></td>
-          <td class="activity"><span class="heatmap">${heatmapCells(e.recentDays)}</span></td>
-          <td class="last">${escapeHtml(relativeTime(e.lastShippedAt, updatedAt))}</td>
+          <td><a class="who" href="/@${handle}">${avatar(e.avatarUrl, 28)}<span class="who-t"><span class="who-l1"><span class="nm">${handle}</span>${isViewer ? '<span class="tag tag-you">you</span>' : ''}</span><span class="meta-sm">${heatmap(e.recentDays, true)}<span>${last}</span></span></span></a></td>
+          <td class="ships">${formatCount(e.shippedCount)}<small>${e.dayCount} day${e.dayCount === 1 ? '' : 's'}</small></td>
+          <td class="heat hide-sm">${heatmap(e.recentDays)}</td>
+          <td class="last hide-sm">${last}</td>
         </tr>`;
       }).join('');
 
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>vibetime leaderboard</title>
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
-${renderMeta(nav, 'vibetime leaderboard', `who shipped the most with AI ${SCALE_WINDOW_LABEL[window]}: ${formatCount(devCount)} ${devNoun}, ${formatCount(sessionCount)} ${sessionNoun}, measured from git.`)}
-<style>
-  :root { color-scheme: dark; }
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: #0a0a0a; color: #e5e5e5; padding: 32px 16px; }
-  main { max-width: 760px; margin: 0 auto; }
-  header { margin-bottom: 24px; }
-  h1 { font-size: 18px; margin: 0; color: #a78bfa; font-weight: 600; letter-spacing: 0.5px; }
-  .tagline { color: #999; font-size: 13px; margin: 6px 0 0; }
-  .scale { color: #888; font-size: 12px; margin: 6px 0 0; }
-  .scale strong { color: #c4b5fd; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .scale .range { color: #555; }
-  .sub { color: #666; font-size: 12px; margin: 4px 0 0; }
-  .tabs { display: flex; gap: 4px; margin: 20px 0 16px; border-bottom: 1px solid #1a1a1a; }
-  .tab { color: #666; text-decoration: none; padding: 8px 12px; font-size: 13px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
-  .tab:hover { color: #a78bfa; }
-  .tab-active { color: #e5e5e5; border-bottom-color: #a78bfa; }
-  table { width: 100%; border-collapse: collapse; }
-  thead th { text-align: left; padding: 8px 8px 12px; color: #555; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.6px; white-space: nowrap; border-bottom: 1px solid #1a1a1a; }
-  thead th.col-rank, thead th.col-shipped { text-align: right; }
-  thead th.col-last { text-align: right; }
-  tbody td { padding: 12px 8px; border-bottom: 1px solid #141414; font-size: 14px; vertical-align: middle; }
-  tbody tr:hover td { background: #111; }
-  td.rank { width: 44px; color: #666; text-align: right; font-variant-numeric: tabular-nums; }
-  td.rank-top { color: #a78bfa; font-weight: 600; }
-  td.shipped { width: 84px; text-align: right; color: #a78bfa; font-variant-numeric: tabular-nums; font-weight: 600; font-size: 16px; }
-  td.shipped .days { display: block; color: #555; font-size: 10px; font-weight: 400; letter-spacing: 0.2px; margin-top: 2px; }
-  td.activity { width: 110px; }
-  td.last { width: 100px; text-align: right; color: #666; font-size: 12px; font-variant-numeric: tabular-nums; }
-  td.who a { color: #e5e5e5; text-decoration: none; display: inline-flex; align-items: center; gap: 10px; vertical-align: middle; max-width: 100%; }
-  tbody tr.you td { background: #120d1c; }
-  .you-tag { font-size: 10px; color: #c4b5fd; border: 1px solid #3b2a5d; border-radius: 999px; padding: 0 6px; margin-left: 8px; vertical-align: middle; }
-  td.who a:hover { color: #a78bfa; }
-  td.who img, .avatar-fallback { border-radius: 50%; display: block; width: 24px; height: 24px; }
-  .avatar-fallback { background: #1a1a1a; }
-  td.empty { text-align: center; color: #666; padding: 40px 16px; }
-  .empty-msg { margin-bottom: 16px; }
-  .empty-cmd { color: #a78bfa; background: #111; padding: 10px 14px; border-radius: 4px; display: inline-block; margin: 0; font-family: inherit; font-size: 13px; text-align: left; }
-  .legend { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin: 12px 0 0; color: #555; font-size: 11px; }
-  .legend .cell { width: 8px; height: 8px; }
-  .heatmap { display: inline-flex; gap: 3px; }
-  .cell { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
-  .cell-0 { background: #1a1a1a; }
-  .cell-1 { background: #3b2a5d; }
-  .cell-2 { background: #6d4ec8; }
-  .cell-3 { background: #a78bfa; }
-  footer { color: #444; font-size: 11px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #141414; }
-  footer .definition { margin-bottom: 8px; }
-  footer a { color: #666; }
-  .links a, .links code { white-space: nowrap; }
-  .callout { display: flex; align-items: center; gap: 10px; margin: 18px 0 0; padding: 10px 12px; border: 1px solid #3b2a5d; border-radius: 8px; background: #120d1c; color: #c4b5fd; font-size: 13px; text-decoration: none; }
-  .callout:hover { border-color: #a78bfa; color: #e5e5e5; }
-  .callout-new { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: #0a0a0a; background: #a78bfa; border-radius: 999px; padding: 1px 7px; font-weight: 600; flex-shrink: 0; }
-  .callout-go { margin-left: auto; color: #a78bfa; }
-  ${NAV_STYLE}
-  @media (max-width: 600px) {
-    body { padding: 20px 12px; }
-    tbody td, thead th { padding: 12px 4px; }
-    td.last, thead th.col-last { display: none; }
-    td.shipped, thead th.col-shipped { width: 60px; }
-    td.shipped { font-size: 14px; }
-    td.activity, thead th.col-activity { width: 80px; }
-    .heatmap { gap: 2px; }
-    .heatmap .cell { width: 8px; height: 8px; }
-    td.who a span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  }
-</style>
-</head>
-<body>
-<main>
-  ${renderNav('leaderboard', nav)}
-  <header>
-    <h1>leaderboard</h1>
-    <p class="tagline">ranked by what you ship</p>
-    ${scaleLine}
-    <p class="sub">updated ${updatedAt.toISOString().slice(0, 16).replace('T', ' ')}Z</p>
+  return renderPage({
+    title: 'vibetime leaderboard',
+    place: 'leaderboard',
+    nav,
+    preview: {
+      title: 'vibetime leaderboard',
+      description: `who shipped the most with AI ${SCALE_WINDOW_LABEL[window]}: ${formatCount(devCount)} ${devNoun}, ${formatCount(sessionCount)} ${sessionNoun}, measured from git.`,
+    },
+    body: `<header class="head">
+    <div><h1>leaderboard</h1>${scaleLine}</div>
+    <nav class="tabs" aria-label="window">${tab('this week', 'week', window)}${tab('this month', 'month', window)}${tab('all time', 'all', window)}</nav>
   </header>
-  <a class="callout" href="/crews"><span class="callout-new">new</span><span>crews: start one with your people and compete as a group</span><span class="callout-go" aria-hidden="true">→</span></a>
-  <nav class="tabs">
-    ${tab('this week', 'week', window)}
-    ${tab('this month', 'month', window)}
-    ${tab('all time', 'all', window)}
-  </nav>
+  <a class="callout" href="/crews">${icon('users')}<span>crews: start one with your people and compete as a group</span>${icon('arrow-right', 'go')}</a>
   <table>
     <thead>
       <tr>
-        <th class="col-rank">#</th>
-        <th class="col-developer">developer</th>
-        <th class="col-shipped">ships</th>
-        <th class="col-activity">last 7 days</th>
-        <th class="col-last">last shipped</th>
+        <th class="r">#</th>
+        <th>developer</th>
+        <th class="r">ships</th>
+        <th class="hide-sm">last 7 days</th>
+        <th class="r hide-sm">last shipped</th>
       </tr>
     </thead>
     <tbody>
       ${tableRows}
     </tbody>
   </table>
-  <div class="legend" aria-hidden="true">
-    last 7 days: less
-    <span class="cell cell-0"></span>
-    <span class="cell cell-1"></span>
-    <span class="cell cell-2"></span>
-    <span class="cell cell-3"></span>
-    more
-  </div>
-  <footer>
-    <div class="definition"><strong style="color:#777">ship</strong> = each time a session lands new work worth counting: a commit, plus more than 50 lines or more than 3 files. The smaller number is how many days those ships landed on, and the squares are which ones.</div>
-    <div class="links"><a href="https://github.com/iamnotstatic/vibetime">github.com/iamnotstatic/vibetime</a> · <code>npm i -g vibetime-cli</code></div>
-  </footer>
-</main>
-</body>
-</html>`;
+  <div class="board-foot"><span>updated ${updatedAt.toISOString().slice(11, 16)} utc</span>${LEGEND}</div>
+  <p class="def"><b>ship</b> = each time a session lands new work worth counting: a commit, plus more than 50 lines or more than 3 files. Developers are ranked by ships. The smaller number is how many days those ships landed on, and the squares are which ones.</p>`,
+  });
 }

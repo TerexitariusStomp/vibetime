@@ -1,16 +1,22 @@
-import type { Viewer } from '../web-session.js';
+import type { Theme, Viewer } from '../web-session.js';
+import { COPY_SCRIPT_URL, FONT_URL, SITE_CSS_URL, gem, icon } from './style.js';
 
 // A crew keeps the same shade everywhere it appears, so it reads as one thing
-// across the board, its page, the invite and a profile.
-const CREW_SHADES = ['#a78bfa', '#c4b5fd', '#8b5cf6', '#d8b4fe', '#7c3aed', '#e9d5ff', '#9f7aea', '#b794f4'];
+// across the board, its page, the invite and a profile. Eight hues at one
+// lightness, so neighbours differ and dark initials read on every one.
+const CREW_SHADES = ['#A78BFA', '#8DA2FB', '#7DC4F0', '#5FD4C0', '#A8D672', '#F2C46D', '#F49A8A', '#E29BEB'];
 export function crewShade(slug: string): string {
   let n = 0;
   for (const c of slug) n = (n * 31 + c.charCodeAt(0)) >>> 0;
   return CREW_SHADES[n % CREW_SHADES.length];
 }
 
+// By grapheme: slicing the joined string cut an emoji in half ("M��").
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 export function crewInitials(name: string): string {
-  return name.split(/\s+/).map((w) => [...w][0] ?? '').join('').slice(0, 2).toUpperCase();
+  return name.split(/\s+/).filter(Boolean)
+    .map((w) => graphemes.segment(w)[Symbol.iterator]().next().value?.segment ?? '')
+    .slice(0, 2).join('').toUpperCase();
 }
 
 export function escapeHtml(s: string): string {
@@ -30,6 +36,7 @@ export interface NavContext {
   path: string;
   // Link previews only resolve absolute URLs.
   origin: string;
+  theme: Theme;
 }
 
 export function renderMeta(nav: NavContext, title: string, description: string): string {
@@ -75,100 +82,99 @@ export function backFrom(request: Request, fallback: BackLink): BackLink {
   return fallback;
 }
 
-export const BACK_STYLE = `
-  .back { color: #666; font-size: 12px; display: inline-block; margin: -8px 0 20px; text-decoration: none; }
-  .back:hover { color: #a78bfa; }
-`;
-
 export function renderBack(back: BackLink): string {
-  return `<a class="back" href="${escapeHtml(back.href)}">← ${escapeHtml(back.label)}</a>`;
+  return `<a class="back" href="${escapeHtml(back.href)}">${icon('arrow-left')}${escapeHtml(back.label)}</a>`;
 }
 
-export const NAV_STYLE = `
-  .nav { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 1px solid #1a1a1a; }
-  .nav .brand { color: #a78bfa; font-weight: 600; letter-spacing: 0.5px; white-space: nowrap; text-decoration: none; }
-  .nav .brand:hover { color: #c4b5fd; }
-  .nav .places { display: flex; gap: 2px; flex: 1; min-width: 0; }
-  .nav .places a { color: #666; padding: 4px 10px; border-radius: 6px; font-size: 13px; text-decoration: none; }
-  .nav .places a:hover { color: #a78bfa; }
-  .nav .places a.on { color: #e5e5e5; background: #15101f; }
-  .nav .account { display: flex; align-items: center; gap: 10px; font-size: 12px; flex-shrink: 0; }
-  .nav .me { display: flex; align-items: center; gap: 8px; color: #888; text-decoration: none; min-width: 0; }
-  .nav .me:hover { color: #a78bfa; }
-  .nav .me img, .nav .me .avatar-fallback { width: 22px; height: 22px; border-radius: 50%; display: block; }
-  .nav .me .avatar-fallback { background: #1a1a1a; }
-  .nav .me span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 14ch; }
-  .nav form { margin: 0; }
-  .nav .signout { background: none; border: 0; padding: 0; color: #555; font: inherit; font-size: 12px; cursor: pointer; }
-  .nav .signout:hover { color: #a78bfa; }
-  .nav .signin { color: #e5e5e5; border: 1px solid #1a1a1a; padding: 4px 10px; border-radius: 6px; font-size: 12px; text-decoration: none; white-space: nowrap; }
-  .nav .signin:hover { border-color: #a78bfa; color: #a78bfa; }
-  @media (max-width: 480px) {
-    .nav { gap: 10px; }
-    .nav .places a { padding: 4px 6px; }
-    .nav .me span { display: none; }
-  }
-  @media (max-width: 420px) {
-    .nav .brand-word { display: none; }
-  }
-  @media (max-width: 360px) {
-    .nav { gap: 8px; }
-    .nav .places a { padding: 4px 3px; font-size: 12px; }
-    .nav .account { gap: 8px; }
-  }
-`;
+export function avatar(url: string | null, size: number): string {
+  return url
+    ? `<img class="av" src="${escapeHtml(url)}" alt="" width="${size}" height="${size}" loading="lazy">`
+    : `<span class="av" style="width:${size}px;height:${size}px" aria-hidden="true"></span>`;
+}
+
+// An install line people copy. The prompt is drawn but never copied.
+export function command(lines: string[]): string {
+  const shown = lines.map((l) => `<span class="ps">$ </span>${escapeHtml(l)}`).join('\n');
+  return `<div class="cmd"><pre><code>${shown}</code></pre><button class="btn btn-ghost btn-sm btn-icon" type="button" data-copy="${escapeHtml(lines.join('\n'))}" aria-label="copy">${icon('copy', 'copy-idle')}${icon('check', 'copy-done')}</button></div>`;
+}
 
 export function renderNav(place: NavPlace, ctx: NavContext): string {
-  const place_ = (label: string, href: string, key: NavPlace): string =>
-    `<a href="${href}"${place === key ? ' class="on" aria-current="page"' : ''}>${label}</a>`;
+  const place_ = (label: string, href: string, key: NavPlace, glyph: 'trophy' | 'users' | 'chart'): string =>
+    `<a href="${href}"${place === key ? ' class="on" aria-current="page"' : ''}>${icon(glyph)}<span>${label}</span></a>`;
   let account = '';
   if (ctx.viewer) {
     const handle = escapeHtml(ctx.viewer.handle);
-    const avatar = ctx.viewer.avatarUrl
-      ? `<img src="${escapeHtml(ctx.viewer.avatarUrl)}" alt="" width="22" height="22">`
-      : `<span class="avatar-fallback" aria-hidden="true"></span>`;
-    account = `<div class="account">
-      <a class="me" href="/@${handle}" title="your profile">${avatar}<span>${handle}</span></a>
-      <form method="post" action="/auth/signout"><input type="hidden" name="next" value="${escapeHtml(ctx.path)}"><button class="signout" type="submit">sign out</button></form>
-    </div>`;
+    account = `<details class="menu">
+      <summary aria-label="your account">${avatar(ctx.viewer.avatarUrl, 28)}<span class="me">${handle}</span>${icon('chevron-down', 'chev')}</summary>
+      <div class="menu-pop">
+        <p class="menu-who">signed in as <b>@${handle}</b></p>
+        <a href="/@${handle}">${icon('user')}your profile</a>
+        <form method="post" action="/auth/signout"><input type="hidden" name="next" value="${escapeHtml(ctx.path)}"><button type="submit">${icon('log-out')}sign out</button></form>
+      </div>
+    </details>`;
   } else if (ctx.signInEnabled) {
-    account = `<a class="signin" href="/auth/github/start?next=${encodeURIComponent(ctx.path)}">sign in</a>`;
+    account = `<a class="btn btn-sm" href="/auth/github/start?next=${encodeURIComponent(ctx.path)}">${icon('github')}sign in</a>`;
   }
-  return `<nav class="nav" aria-label="vibetime">
-    <a class="brand" href="/leaderboard" aria-label="vibetime">◆<span class="brand-word"> vibetime</span></a>
-    <div class="places">${place_('leaderboard', '/leaderboard', 'leaderboard')}${place_('crews', '/crews', 'crews')}${place_('stats', '/stats', 'stats')}</div>
-    ${account}
-  </nav>`;
+  const other = ctx.theme === 'light' ? 'dark' : 'light';
+  // Both icons ship; the stylesheet shows the one for the current theme, so the
+  // site script can switch themes without a page load.
+  const theme = `<form method="post" action="/theme"><input type="hidden" name="next" value="${escapeHtml(ctx.path)}"><button class="btn btn-ghost btn-sm btn-icon" type="submit" name="theme" value="${other}" aria-label="switch to ${other}">${icon('sun', 'i-sun')}${icon('moon', 'i-moon')}</button></form>`;
+  return `<nav class="nav" aria-label="vibetime"><div class="wrap nav-in">
+    <a class="brand" href="/leaderboard" aria-label="vibetime">${gem(22)}<span>vibetime</span></a>
+    <div class="places">${place_('leaderboard', '/leaderboard', 'leaderboard', 'trophy')}${place_('crews', '/crews', 'crews', 'users')}${place_('stats', '/stats', 'stats', 'chart')}</div>
+    <div class="account">${theme}${account}</div>
+  </div></nav>`;
 }
 
-export function renderNotice(title: string, body: string, action?: { href: string; label: string }): string {
+const FOOTER = `<footer class="foot"><div class="wrap foot-in">
+  <span class="foot-brand">${gem(14)}vibetime · open source, MIT</span>
+  <span class="foot-links"><a href="https://github.com/iamnotstatic/vibetime">${icon('github')}github</a><code>npm i -g vibetime-cli</code></span>
+</div></footer>`;
+
+export interface PageOptions {
+  title: string;
+  place: NavPlace;
+  nav: NavContext;
+  body: string;
+  // Link preview tags, for pages people share.
+  preview?: { title: string; description: string };
+}
+
+// Every page is this shell: one cached stylesheet, the font, the site script,
+// the top bar and the footer. Pages only bring their body.
+export function renderPage({ title, place, nav, body, preview }: PageOptions): string {
   return `<!doctype html>
-<html lang="en">
+<html lang="en" data-theme="${nav.theme}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${escapeHtml(title)} · vibetime</title>
+<title>${escapeHtml(title)}</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<style>
-  :root { color-scheme: dark; }
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: #0a0a0a; color: #e5e5e5; padding: 32px 16px; }
-  main { max-width: 560px; margin: 0 auto; }
-  h1 { font-size: 18px; color: #a78bfa; margin: 40px 0 8px; font-weight: 600; }
-  p { color: #888; font-size: 13px; margin: 0 0 20px; }
-  a { color: #a78bfa; text-decoration: none; }
-  a:hover { color: #c4b5fd; }
-  .actions { display: flex; gap: 16px; font-size: 13px; }
-  ${NAV_STYLE}
-</style>
+<link rel="preload" href="${FONT_URL}" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="${SITE_CSS_URL}">
+${preview ? renderMeta(nav, preview.title, preview.description) : ''}
+<script src="${COPY_SCRIPT_URL}" defer></script>
 </head>
 <body>
-<main>
-  ${renderNav(null, { viewer: null, signInEnabled: false, path: '/leaderboard', origin: '' })}
-  <h1>${escapeHtml(title)}</h1>
-  <p>${escapeHtml(body)}</p>
-  <div class="actions">${action ? `<a href="${escapeHtml(action.href)}">${escapeHtml(action.label)}</a>` : ''}<a href="/leaderboard">back to the leaderboard</a></div>
+${renderNav(place, nav)}
+<main class="wrap">
+${body}
 </main>
+${FOOTER}
 </body>
 </html>`;
+}
+
+export function renderNotice(title: string, body: string, action?: { href: string; label: string }): string {
+  return renderPage({
+    title: `${title} · vibetime`,
+    place: null,
+    nav: { viewer: null, signInEnabled: false, path: '/leaderboard', origin: '', theme: 'dark' },
+    body: `<div class="notice">
+    ${gem(56)}
+    <h1>${escapeHtml(title)}</h1>
+    <p>${escapeHtml(body)}</p>
+    <div class="actions">${action ? `<a class="btn btn-primary" href="${escapeHtml(action.href)}">${escapeHtml(action.label)}</a>` : ''}<a class="btn" href="/leaderboard">back to the leaderboard</a></div>
+  </div>`,
+  });
 }
