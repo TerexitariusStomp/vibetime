@@ -112,6 +112,9 @@ main[aria-busy="true"] > :not(.head):not(.tabs) { opacity: .5; transition-delay:
 .btn-icon { width: 36px; padding: 0; }
 .btn-block { width: 100%; height: 44px; font-size: 14px; }
 .show-sm { display: none; }
+.way-out { display: grid; gap: 10px; margin: 10px 0 20px; }
+.way-out .fine, .way-out .chips { margin: 0; }
+.card.center .way-out .chips { justify-content: center; }
 form.inline { display: inline; margin: 0; }
 .input { height: 40px; width: 100%; min-width: 0; padding: 0 12px; border-radius: var(--r-2); border: 1px solid var(--line-strong); background: var(--surface-1); color: var(--text); font: inherit; font-size: 14px; }
 .input:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }

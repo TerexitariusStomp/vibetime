@@ -72,7 +72,7 @@ export async function crewsHtml(request: Request, env: Env): Promise<Response> {
 export async function newCrewHtml(request: Request, env: Env): Promise<Response> {
   const { url, viewer, nav } = await context(request, env);
   if (!viewer) return signInFirst('/crews/new');
-  return page(renderCreate(nav, await memberCountsOf(env, viewer.githubId), knownMessage(url), '', new URL(webOrigin(env)).host), viewer);
+  return page(renderCreate(nav, await crewsOf(env, viewer.githubId), knownMessage(url), '', new URL(webOrigin(env)).host), viewer);
 }
 
 export async function createCrewPost(request: Request, env: Env): Promise<Response> {
@@ -82,7 +82,7 @@ export async function createCrewPost(request: Request, env: Env): Promise<Respon
   const name = await formValue(request, 'name');
   const result = await createCrew(env, viewer.githubId, name);
   if (result.ok) return see(`/crew/${result.slug}?m=created`);
-  return page(renderCreate(nav, await memberCountsOf(env, viewer.githubId), result.reason, name ?? '', new URL(webOrigin(env)).host), viewer, 200);
+  return page(renderCreate(nav, await crewsOf(env, viewer.githubId), result.reason, name ?? '', new URL(webOrigin(env)).host), viewer, 200);
 }
 
 async function crewRank(env: Env, slug: string, window: ReturnType<typeof parseCrewWindow>) {
@@ -103,7 +103,9 @@ export async function crewHtml(request: Request, env: Env, slug: string): Promis
   ]);
   const me = { member, owner: member && viewer?.githubId === crew.ownerGithubId };
   const needsCli = member && viewer !== null && !(await hasUsedCli(env, viewer.githubId));
-  return page(renderCrew(crew, members, window, windowStart(window), new Date(), rank, nav, me, knownMessage(url), webOrigin(env), backFrom(request, { href: '/crews', label: 'crews' }), needsCli), viewer, 200, true);
+  const message = knownMessage(url);
+  const mine = message === 'limit' && viewer ? await crewsOf(env, viewer.githubId) : [];
+  return page(renderCrew(crew, members, window, windowStart(window), new Date(), rank, nav, me, message, webOrigin(env), backFrom(request, { href: '/crews', label: 'crews' }), needsCli, mine), viewer, 200, true);
 }
 
 export async function crewJoinPost(request: Request, env: Env, slug: string): Promise<Response> {
@@ -227,10 +229,10 @@ export async function inviteHtml(request: Request, env: Env, code: string): Prom
   const board = fullBoard.filter((b) => b.rank !== null);
   const i = board.findIndex((b) => b.slug === crew.slug);
   const avatars = members.filter((m) => m.current).slice(0, 8).map((m) => m.avatarUrl);
-  const [inCrews, usedCli] = viewer
-    ? await Promise.all([memberCountsOf(env, viewer.githubId), hasUsedCli(env, viewer.githubId)])
-    : [0, true];
-  return page(renderInvite(crew, members.reduce((a, m) => a + m.ships, 0), i === -1 ? null : i + 1, board.length, avatars, nav, state, code, inCrews, !usedCli), viewer);
+  const [mine, usedCli] = viewer
+    ? await Promise.all([crewsOf(env, viewer.githubId), hasUsedCli(env, viewer.githubId)])
+    : [[], true];
+  return page(renderInvite(crew, members.reduce((a, m) => a + m.ships, 0), i === -1 ? null : i + 1, board.length, avatars, nav, state, code, mine, !usedCli), viewer);
 }
 
 export async function invitePost(request: Request, env: Env, code: string): Promise<Response> {

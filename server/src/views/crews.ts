@@ -1,4 +1,4 @@
-import type { BoardEntry, Crew, CrewWindow, Face, MemberEntry } from '../crews.js';
+import type { BoardEntry, Crew, CrewWindow, Face, MemberEntry, Membership } from '../crews.js';
 import { MAX_CREWS_PER_USER, MAX_MEMBERS, MIN_MEMBERS_TO_RANK, NAME_MAX, slugFor } from '../crews.js';
 import { avatar, command, crewInitials, crewShade, escapeHtml, formatCount, renderBack, renderPage, type BackLink, type NavContext, type NavPlace } from './layout.js';
 import { heatmap, liveDot, relativeTime, windowRange } from './leaderboard.js';
@@ -19,7 +19,7 @@ export const MESSAGES: Record<string, { text: string; good: boolean }> = {
   handed: { text: 'you handed the crew over.', good: true },
   already: { text: 'you are already in this crew.', good: true },
   full: { text: `this crew is full (${MAX_MEMBERS} members).`, good: false },
-  limit: { text: `you are in ${MAX_CREWS_PER_USER} crews already. leave one to join another.`, good: false },
+  limit: { text: `you are in ${MAX_CREWS_PER_USER} crews already.`, good: false },
   name: { text: 'pick a name between 2 and 32 characters.', good: false },
   closedcrew: { text: 'this crew is invite only. ask the owner for the link.', good: false },
 };
@@ -49,6 +49,14 @@ const INSTALL = command(['npm i -g vibetime-cli@latest', 'vibe init', 'vibe logi
 function note(message: string | null): string {
   const m = message ? MESSAGES[message] : undefined;
   return m ? `<p class="note ${m.good ? 'note-good' : 'note-bad'}" role="status">${icon(m.good ? 'circle-check' : 'alert')}<span>${escapeHtml(m.text)}</span></p>` : '';
+}
+
+// At the limit the only way forward is leaving a crew, which happens on that
+// crew's page, so the limit always comes with a way to each of them.
+function yourCrews(mine: Membership[]): string {
+  if (mine.length === 0) return '';
+  return `<div class="way-out"><p class="fine">${MAX_CREWS_PER_USER} is the most anyone can be in. to join another, leave one of yours from its page:</p>
+    <div class="chips">${mine.map((c) => `<a class="chip" href="/crew/${escapeHtml(c.slug)}">${monogram(c.name, c.slug)}${escapeHtml(c.name)}</a>`).join('')}</div></div>`;
 }
 
 function tabs(base: string, window: CrewWindow): string {
@@ -119,7 +127,7 @@ export interface CrewViewerState {
 export function renderCrew(
   crew: Crew, members: MemberEntry[], window: CrewWindow, start: Date | null, now: Date,
   rank: { rank: number; above: BoardEntry | null; count: number } | null,
-  nav: NavContext, me: CrewViewerState, message: string | null, origin: string, back: BackLink, needsCli: boolean,
+  nav: NavContext, me: CrewViewerState, message: string | null, origin: string, back: BackLink, needsCli: boolean, mine: Membership[] = [],
 ): string {
   const ships = members.reduce((a, m) => a + m.ships, 0);
   const shipping = members.filter((m) => m.current && m.ships > 0).length;
@@ -205,7 +213,7 @@ export function renderCrew(
 
   return page(`${crew.name} · vibetime crews`, 'crews', nav, `
   ${renderBack(back)}
-  ${note(message)}
+  ${note(message)}${message === 'limit' ? yourCrews(mine) : ''}
   <header class="head crew-head">
     <div class="who">${monogram(crew.name, crew.slug, true)}<div>
       <h1>${escapeHtml(crew.name)}${crew.open ? ` ${OPEN_TAG}` : ''}</h1>
@@ -233,16 +241,16 @@ export function renderCrew(
 
 export function renderInvite(
   crew: Crew, weekShips: number, rank: number | null, crewCount: number, avatars: (string | null)[],
-  nav: NavContext, state: 'signed-out' | 'can-join' | 'limit' | 'full', code: string, inCrews: number, needsCli: boolean,
+  nav: NavContext, state: 'signed-out' | 'can-join' | 'limit' | 'full', code: string, mine: Membership[], needsCli: boolean,
 ): string {
   const install = `<div class="divider"></div><div class="steps"><div class="lbl">new to vibetime? set it up so your ships count:</div>${INSTALL}</div>`;
   const action = state === 'signed-out'
     ? (nav.signInEnabled ? `<a class="btn btn-primary btn-block" href="/auth/github/start?next=${encodeURIComponent(`/join/${code}`)}">${icon('github')}join with GitHub</a>` : '')
     : state === 'can-join'
       ? `<form method="post" action="/join/${escapeHtml(code)}" style="width:100%"><button class="btn btn-primary btn-block" type="submit">join ${escapeHtml(crew.name)}</button></form>
-         <p class="fine">signed in as @${escapeHtml(nav.viewer?.handle ?? '')} · you are in ${inCrews} of ${MAX_CREWS_PER_USER} crews</p>`
+         <p class="fine">signed in as @${escapeHtml(nav.viewer?.handle ?? '')} · you are in ${mine.length} of ${MAX_CREWS_PER_USER} crews</p>`
       : state === 'limit'
-        ? `<span class="btn btn-quiet btn-block">you are in ${MAX_CREWS_PER_USER} crews</span><p class="fine">leave one of your crews to join this one.</p>`
+        ? `<span class="btn btn-quiet btn-block">you are in ${MAX_CREWS_PER_USER} crews</span>${yourCrews(mine)}`
         : `<span class="btn btn-quiet btn-block">this crew is full</span><p class="fine">it has ${MAX_MEMBERS} members. ask @${escapeHtml(crew.ownerHandle)} about it.</p>`;
   return page(`join ${crew.name} · vibetime`, 'crews', nav, `
   <div class="card center">
@@ -278,8 +286,8 @@ export function renderCrewMissing(nav: NavContext): string {
   </div>`);
 }
 
-export function renderCreate(nav: NavContext, crewCount: number, message: string | null, name: string, host: string): string {
-  const atLimit = crewCount >= MAX_CREWS_PER_USER;
+export function renderCreate(nav: NavContext, mine: Membership[], message: string | null, name: string, host: string): string {
+  const atLimit = mine.length >= MAX_CREWS_PER_USER;
   return page('start a crew · vibetime', 'crews', nav, `
   <form class="card" method="post" action="/crews">
     ${note(message)}
@@ -290,9 +298,9 @@ export function renderCreate(nav: NavContext, crewCount: number, message: string
       <p class="hint">your crew lives at <b id="slug-preview" data-host="${escapeHtml(host)}">${escapeHtml(host)}/crew/${escapeHtml(name ? slugFor(name) : '…')}</b></p>
     </div>
     ${atLimit
-      ? `<span class="btn btn-quiet btn-block">you are in ${MAX_CREWS_PER_USER} crews already</span>`
+      ? `<span class="btn btn-quiet btn-block">you are in ${MAX_CREWS_PER_USER} crews</span>${yourCrews(mine)}`
       : `<button class="btn btn-primary btn-block" type="submit">start crew</button>`}
-    <p class="fine">you are in ${crewCount} of ${MAX_CREWS_PER_USER} crews. crews are public: the name, members and their ship counts show on vibetime.club. new crews are invite only; you can open yours later.</p>
+    <p class="fine">you are in ${mine.length} of ${MAX_CREWS_PER_USER} crews. crews are public: the name, members and their ship counts show on vibetime.club. new crews are invite only; you can open yours later.</p>
   </form>`);
 }
 
