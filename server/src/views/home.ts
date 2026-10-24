@@ -5,6 +5,8 @@ import { monogram } from './crews.js';
 import { avatar, command, escapeHtml, formatCount, renderPage, type NavContext } from './layout.js';
 import { gem, icon } from './style.js';
 
+// A phone cannot install a CLI, so on phones the hero leads with the
+// leaderboard and the install waits for a laptop.
 const INSTALL = ['npm i -g vibetime-cli', 'vibe init', 'vibe login'];
 
 // The tier bar from the endcard: ten segments, the first `filled` lit.
@@ -38,7 +40,12 @@ export function renderHome(stats: StatsData, week: LeaderboardEntry[], crews: Bo
     <div>
       <h1 class="display">track what you vibe.</h1>
       <p class="lead">every session you ship with AI, counted from git. vibetime wraps claude, codex, gemini, aster and opencode, and hooks into the Claude Code, Codex and Cursor apps. it never reads your code.</p>
-      <div class="actions"><button class="btn btn-primary" type="button" data-copy="${escapeHtml(INSTALL.join('\n'))}">${icon('copy', 'copy-idle')}${icon('check', 'copy-done')}copy the install</button><a class="btn" href="/leaderboard">${icon('trophy')}see the leaderboard</a></div>
+      <div class="actions">
+        <button class="btn btn-primary hide-sm" type="button" data-copy="${escapeHtml(INSTALL.join('\n'))}">${icon('copy', 'copy-idle')}${icon('check', 'copy-done')}<span class="swap"><span class="copy-idle">copy the install</span><span class="copy-done">copied</span></span></button>
+        <a class="btn hide-sm" href="/leaderboard">${icon('trophy')}see the leaderboard</a>
+        <a class="btn btn-primary show-sm" href="/leaderboard">${icon('trophy')}see the leaderboard</a>
+        <a class="btn show-sm" href="https://github.com/iamnotstatic/vibetime">${icon('github')}github</a>
+      </div>
     </div>
     <div class="hero-term">
     ${command(INSTALL)}
