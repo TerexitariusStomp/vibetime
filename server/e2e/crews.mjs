@@ -54,7 +54,7 @@ const today = new Date().toISOString().slice(0, 10);
 const monday = (() => { const d = new Date(); const back = (d.getUTCDay() + 6) % 7; d.setUTCDate(d.getUTCDate() - back); return d.toISOString().slice(0, 10); })();
 const daysBefore = (day, n) => { const d = new Date(`${day}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
 function ships(user, day, n) {
-  d1(`INSERT INTO ship_events (session_id, user_github_id, day, ships) VALUES ('${randomUUID()}', ${user.id}, '${day}', ${n})`);
+  d1(`INSERT INTO ship_events (session_id, user_github_id, day, ships) VALUES ('${user.sid ?? randomUUID()}', ${user.id}, '${day}', ${n})`);
 }
 const crewIdOf = (slug) => d1(`SELECT id FROM crews WHERE slug = '${slug}' AND deleted_at IS NULL`)[0]?.id;
 const inviteOf = (slug) => d1(`SELECT invite_code FROM crews WHERE slug = '${slug}' AND deleted_at IS NULL`)[0]?.invite_code;
@@ -250,6 +250,22 @@ const dee = await signIn('dee');
 {
   const lb = await (await anon.get('/leaderboard')).text();
   check('the leaderboard bar links to crews', lb.includes('href="/crews"'));
+  const home = await anon.get('/');
+  const homePage = await home.text();
+  check('/ shows a signed-out visitor what vibetime is, how to install it, and what a ship is',
+    home.status === 200 && homePage.includes('track what you vibe.') && homePage.includes('npm i -g vibetime-cli') && homePage.includes('a <b>ship</b> is') && homePage.includes('href="/leaderboard"'));
+  const again = await req('/', { headers: { cookie: `vt_seen=${Date.now() - 31 * 60 * 1000}` } });
+  const signedIn = await ada.get('/');
+  check('/ keeps showing the home page to signed-out visitors and sends signed-in people to the leaderboard',
+    again.status === 200 && signedIn.status === 302 && loc(signedIn) === '/leaderboard', `${again.status} ${signedIn.status}`);
+  check('the home page leaves out crews with no ships this week', !/<span class="n">0<\/span>/.test(homePage));
+  const sid = randomUUID();
+  d1(`INSERT INTO sessions (id, user_github_id, tool, project_hash, started_at, ended_at, duration_seconds, commits, lines_added, lines_removed, files_touched, momentum, submitted_at)
+      VALUES ('${sid}', ${ada.id}, 'claude', 'p', '${today}T00:00:00Z', '${today}T01:00:00Z', 3600, 1, 60, 0, 1, 'shipped', '${today}T01:00:00Z')`);
+  ships({ id: ada.id, sid }, today, 1);
+  const board = await (await anon.get('/leaderboard')).text();
+  check('the top three stand on a podium and the table carries on from #4',
+    board.includes('<ol class="podium"') && board.includes(`href="/@${ada.handle}"`) && !/<td class="rank">[123]<\/td>/.test(board));
   check('the leaderboard tells people crews exist, with a link to them', /<a class="callout" href="\/crews">[\s\S]*?crews[\s\S]*?<\/a>/.test(lb));
   const js = await anon.get('/assets/copy.js');
   check('the copy script is served as JavaScript from the site itself', js.status === 200 && js.headers.get('content-type').startsWith('text/javascript'));
@@ -268,6 +284,14 @@ const dee = await signIn('dee');
     return { href: m?.[1].replace(/&amp;/g, '&'), label: m?.[2], vary: res.headers.get('vary') };
   };
   const p = `/@${ada.handle}`;
+  const profile = await (await req(p)).text();
+  check('a profile draws twelve weeks of ships as a flat grid with a text summary',
+    profile.includes('<h2>last 12 weeks</h2>') && /<svg class="weeks" viewBox="[^"]+" role="img" aria-label="[^"]*ship/.test(profile) && (profile.match(/<rect class="l\d"/g) ?? []).length >= 78);
+  const badge = await req(`${p}/badge.svg?window=week`);
+  const badgeSvg = await badge.text();
+  const missing = await (await req('/@nobody-here-zz/badge.svg')).text();
+  check('a profile serves a README badge, and an unknown handle gets a "not found" badge, not a broken image',
+    badge.status === 200 && badge.headers.get('content-type').startsWith('image/svg+xml') && /ships? this week<\/text>/.test(badgeSvg) && missing.includes('>not found</text>'));
   const plain = await backOf(p);
   check('a profile opened directly offers a way back to the leaderboard', plain.href === '/leaderboard' && plain.label === 'leaderboard', JSON.stringify(plain));
   const fromMonth = await backOf(p, `${BASE}/leaderboard?window=month`);

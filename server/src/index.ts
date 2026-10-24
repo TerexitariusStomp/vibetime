@@ -3,7 +3,8 @@ import { exchangeAuth, refreshAuth, revokeAuth } from './routes/auth.js';
 import { submitSession } from './routes/sessions.js';
 import { leaderboardJson, leaderboardHtml } from './routes/leaderboard.js';
 import { statsJson, statsHtml } from './routes/stats.js';
-import { parseProfileHandle, profileHtml } from './routes/profile.js';
+import { homeHtml } from './routes/home.js';
+import { parseBadgeHandle, parseProfileHandle, profileBadge, profileHtml } from './routes/profile.js';
 import { clientConfig } from './routes/config.js';
 import { githubCallback, githubStart, setTheme, signOut } from './routes/web-auth.js';
 import {
@@ -43,6 +44,10 @@ export default {
     try {
       if (profileHandle) {
         return await profileHtml(request, env, profileHandle);
+      }
+      const badgeHandle = request.method === 'GET' ? parseBadgeHandle(url.pathname) : null;
+      if (badgeHandle) {
+        return await profileBadge(request, env, badgeHandle);
       }
       const crewPath = parseCrewPath(url.pathname);
       if (crewPath) {
@@ -112,7 +117,7 @@ export default {
         case 'GET /og.png':
           return ogImageResponse();
         case 'GET /':
-          return Response.redirect(new URL('/leaderboard', request.url).toString(), 302);
+          return await homeHtml(request, env);
         default:
           return withCors(error(404, 'not found'));
       }

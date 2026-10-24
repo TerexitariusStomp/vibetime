@@ -2,11 +2,12 @@ import type { Env } from '../env.js';
 import { PAGE_CSP, html } from '../http.js';
 import { currentViewer, pageCacheControl, signInEnabled, themeOf, webOrigin } from '../web-session.js';
 import { backFrom } from '../views/layout.js';
-import { renderProfile, renderProfileNotFound } from '../views/profile.js';
+import { badgeValue, renderBadge, renderProfile, renderProfileNotFound } from '../views/profile.js';
 import { crewBoard, crewsOf } from '../crews.js';
 import { dayKey, startOfCalendarMonth, startOfCalendarWeek } from '../window.js';
 
-const HEATMAP_DAYS = 7;
+// The last twelve weeks on a profile: this week and the eleven before it, Monday first.
+const SKYLINE_WEEKS = 12;
 
 export interface ProfileWindowStats {
   ships: number;
@@ -28,7 +29,8 @@ export interface ProfileData {
   lastShippedAt: string | null;
   weekRank: number | null;
   weekDevCount: number;
-  recentDays: ProfileHeatmapDay[];
+  // Ships per day from the Monday eleven weeks back through today.
+  days: ProfileHeatmapDay[];
 }
 
 // GitHub login rules: 1–39 chars, alphanumeric or hyphen, no leading/trailing hyphen.
@@ -37,6 +39,11 @@ export function parseProfileHandle(pathname: string): string | null {
   const raw = pathname.slice(2);
   if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(raw)) return null;
   return raw;
+}
+
+export function parseBadgeHandle(pathname: string): string | null {
+  const m = /^(\/@[^/]+)\/badge\.svg$/.exec(pathname);
+  return m ? parseProfileHandle(m[1]) : null;
 }
 
 async function windowStats(
@@ -116,22 +123,21 @@ async function buildProfile(env: Env, handle: string): Promise<ProfileData | nul
 
   const { rank, devCount } = await weekRank(env, user.github_id, weekStart, week.ships);
 
-  const heatmapSinceDay = dayKey(new Date(Date.now() - HEATMAP_DAYS * 24 * 60 * 60 * 1000));
+  const since = startOfCalendarWeek();
+  since.setUTCDate(since.getUTCDate() - 7 * (SKYLINE_WEEKS - 1));
   const dailyRes = await env.DB.prepare(
     `SELECT day, SUM(ships) AS n
      FROM ship_events
      WHERE user_github_id = ? AND day >= ?
      GROUP BY day`,
-  ).bind(user.github_id, heatmapSinceDay).all<{ day: string; n: number }>();
+  ).bind(user.github_id, dayKey(since)).all<{ day: string; n: number }>();
 
   const byDay = new Map((dailyRes.results ?? []).map((d) => [d.day, d.n]));
-  const recentDays: ProfileHeatmapDay[] = [];
-  const now = new Date();
-  for (let i = HEATMAP_DAYS - 1; i >= 0; i--) {
-    const d = new Date(now);
-    d.setUTCDate(d.getUTCDate() - i);
+  const days: ProfileHeatmapDay[] = [];
+  const today = dayKey(new Date());
+  for (const d = since; dayKey(d) <= today; d.setUTCDate(d.getUTCDate() + 1)) {
     const key = dayKey(d);
-    recentDays.push({ day: key, n: byDay.get(key) ?? 0 });
+    days.push({ day: key, n: byDay.get(key) ?? 0 });
   }
 
   return {
@@ -144,8 +150,29 @@ async function buildProfile(env: Env, handle: string): Promise<ProfileData | nul
     lastShippedAt: last?.last_shipped_at ?? null,
     weekRank: rank,
     weekDevCount: devCount,
-    recentDays,
+    days,
   };
+}
+
+// An unknown handle still gets a badge, saying so, with a 200: a README should
+// never show a broken image.
+export async function profileBadge(request: Request, env: Env, handle: string): Promise<Response> {
+  const param = new URL(request.url).searchParams.get('window');
+  const window = param === 'week' || param === 'month' ? param : 'all';
+  const since = window === 'week' ? dayKey(startOfCalendarWeek()) : window === 'month' ? dayKey(startOfCalendarMonth()) : '1970-01-01';
+  const user = await env.DB.prepare(`SELECT github_id FROM users WHERE handle = ? COLLATE NOCASE`)
+    .bind(handle).first<{ github_id: number }>();
+  const svg = user
+    ? renderBadge(badgeValue((await windowStats(env, user.github_id, since)).ships, window), true)
+    : renderBadge('not found', false);
+  return new Response(svg, {
+    headers: {
+      'content-type': 'image/svg+xml; charset=utf-8',
+      'cache-control': 'public, max-age=3600',
+      'content-security-policy': "default-src 'none'",
+      'x-content-type-options': 'nosniff',
+    },
+  });
 }
 
 const PAGE_HEADERS = {

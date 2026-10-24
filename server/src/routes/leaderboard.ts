@@ -57,7 +57,7 @@ function parseWindow(value: string | null): Window {
   return 'week';
 }
 
-async function buildData(env: Env, window: Window): Promise<LeaderboardData> {
+export async function buildData(env: Env, window: Window): Promise<LeaderboardData> {
   const sinceMs = window === 'all' ? 0
     : window === 'month' ? startOfCalendarMonth().getTime()
     : window === 'week' ? startOfCalendarWeek().getTime()

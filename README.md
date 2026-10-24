@@ -120,6 +120,14 @@ Still not there? Run `vibe status`. A session marked `progressed` or `tinkering`
 
 `vibe logout` removes `~/.vibe/auth.json` and submission stops immediately.
 
+**README badge.** Show your ships on your own README:
+
+```md
+[![vibetime](https://vibetime.club/@your-handle/badge.svg)](https://vibetime.club/@your-handle)
+```
+
+It shows all-time ships and updates every hour. Add `?window=week` or `?window=month` to the badge URL for that window.
+
 ## Share your week
 
 Run `vibe share` to print your weekly card. Press `h` to open the HTML version — copy it, screenshot it, post it.

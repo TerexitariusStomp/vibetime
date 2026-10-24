@@ -10,7 +10,7 @@ export interface StatsData {
   crews: number;
 }
 
-async function buildStats(env: Env): Promise<StatsData> {
+export async function buildStats(env: Env): Promise<StatsData> {
   const [shippedRes, sessionRes, crewRes] = await Promise.all([
     env.DB.prepare(
       `SELECT COUNT(DISTINCT user_github_id) AS devs,

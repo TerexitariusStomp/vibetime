@@ -24,7 +24,7 @@ export const MESSAGES: Record<string, { text: string; good: boolean }> = {
   closedcrew: { text: 'this crew is invite only. ask the owner for the link.', good: false },
 };
 
-function monogram(name: string, slug: string, big = false): string {
+export function monogram(name: string, slug: string, big = false): string {
   return `<span class="mono${big ? ' mono-xl' : ''}" style="background:${crewShade(slug)}" aria-hidden="true">${escapeHtml(crewInitials(name))}</span>`;
 }
 
