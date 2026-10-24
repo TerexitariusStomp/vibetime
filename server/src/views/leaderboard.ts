@@ -97,7 +97,7 @@ export function renderLeaderboard(data: LeaderboardData, window: Window, updated
         return `<tr${isViewer ? ' class="you"' : ''}>
           <td class="rank">${e.rank}</td>
           <td><a class="who" href="/@${handle}">${avatar(e.avatarUrl, 28)}<span class="who-t"><span class="who-l1"><span class="nm">${handle}</span>${isViewer ? '<span class="tag tag-you">you</span>' : ''}</span><span class="meta-sm">${heatmap(e.recentDays, true)}<span>${last}</span></span></span></a></td>
-          <td class="ships">${formatCount(e.shippedCount)}<small>${e.dayCount} day${e.dayCount === 1 ? '' : 's'}</small></td>
+          <td class="ships">${formatCount(e.shippedCount)}<small>on ${e.dayCount} day${e.dayCount === 1 ? '' : 's'}</small></td>
           <td class="heat hide-sm">${heatmap(e.recentDays)}</td>
           <td class="last hide-sm">${last}</td>
         </tr>`;
@@ -112,7 +112,7 @@ export function renderLeaderboard(data: LeaderboardData, window: Window, updated
       description: `who shipped the most with AI ${SCALE_WINDOW_LABEL[window]}: ${formatCount(devCount)} ${devNoun}, ${formatCount(sessionCount)} ${sessionNoun}, measured from git.`,
     },
     body: `<header class="head">
-    <div><h1>leaderboard</h1>${scaleLine}</div>
+    <div><h1>leaderboard</h1>${scaleLine}<p class="sub">a ship is a commit with more than 50 lines or more than 3 files. <a href="#ship">how ships count</a></p></div>
     <nav class="tabs" aria-label="window">${tab('this week', 'week', window)}${tab('this month', 'month', window)}${tab('all time', 'all', window)}</nav>
   </header>
   <a class="callout" href="/crews">${icon('users')}<span>crews: start one with your people and compete as a group</span>${icon('arrow-right', 'go')}</a>
@@ -132,6 +132,6 @@ export function renderLeaderboard(data: LeaderboardData, window: Window, updated
     </tbody>
   </table>`}
   <div class="board-foot"><span>updated ${updatedAt.toISOString().slice(11, 16)} utc</span>${LEGEND}</div>
-  <p class="def"><b>ship</b> = each time a session lands new work worth counting: a commit, plus more than 50 lines or more than 3 files. Developers are ranked by ships. The smaller number is how many days those ships landed on, and the squares are which ones.</p>`,
+  <p class="def" id="ship"><b>ship</b> = each time a session lands new work worth counting: a commit, plus more than 50 lines or more than 3 files. Developers are ranked by ships. The smaller number is how many days those ships landed on, and the squares are which ones.</p>`,
   });
 }
