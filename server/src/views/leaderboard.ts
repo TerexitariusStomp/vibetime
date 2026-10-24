@@ -1,5 +1,5 @@
 import type { HeatmapDay, LeaderboardData } from '../routes/leaderboard.js';
-import { NAV_STYLE, escapeHtml, renderMeta, renderNav, type NavContext } from './layout.js';
+import { NAV_STYLE, escapeHtml, formatCount, renderMeta, renderNav, type NavContext } from './layout.js';
 
 type Window = 'week' | 'month' | 'all';
 
@@ -53,7 +53,7 @@ export function renderLeaderboard(data: LeaderboardData, window: Window, updated
   const rangeLabel = windowStart ? ` <span class="range">· ${windowRange(windowStart, updatedAt)}</span>` : '';
   const scaleLine = entries.length === 0
     ? ''
-    : `<p class="scale"><strong>${devCount}</strong> ${devNoun} · <strong>${sessionCount}</strong> ${sessionNoun} ${escapeHtml(SCALE_WINDOW_LABEL[window])}${rangeLabel}</p>`;
+    : `<p class="scale"><strong>${formatCount(devCount)}</strong> ${devNoun} · <strong>${formatCount(sessionCount)}</strong> ${sessionNoun} ${escapeHtml(SCALE_WINDOW_LABEL[window])}${rangeLabel}</p>`;
   const tableRows = entries.length === 0
     ? `<tr><td colspan="5" class="empty">
         <div class="empty-msg">nothing shipped. yet.</div>
@@ -71,7 +71,7 @@ vibe login</pre>
         return `<tr${isViewer ? ' class="you"' : ''}>
           <td class="${rankClass}">${e.rank}</td>
           <td class="who"><a href="/@${handle}">${avatar}<span>${handle}</span></a>${isViewer ? '<span class="you-tag">you</span>' : ''}</td>
-          <td class="shipped">${e.shippedCount}<span class="days">${e.dayCount} day${e.dayCount === 1 ? '' : 's'}</span></td>
+          <td class="shipped">${formatCount(e.shippedCount)}<span class="days">${e.dayCount} day${e.dayCount === 1 ? '' : 's'}</span></td>
           <td class="activity"><span class="heatmap">${heatmapCells(e.recentDays)}</span></td>
           <td class="last">${escapeHtml(relativeTime(e.lastShippedAt, updatedAt))}</td>
         </tr>`;
@@ -84,7 +84,7 @@ vibe login</pre>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>vibetime leaderboard</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-${renderMeta(nav, 'vibetime leaderboard', `who shipped the most with AI ${SCALE_WINDOW_LABEL[window]}: ${devCount} ${devNoun}, ${sessionCount} ${sessionNoun}, measured from git.`)}
+${renderMeta(nav, 'vibetime leaderboard', `who shipped the most with AI ${SCALE_WINDOW_LABEL[window]}: ${formatCount(devCount)} ${devNoun}, ${formatCount(sessionCount)} ${sessionNoun}, measured from git.`)}
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }

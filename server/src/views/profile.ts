@@ -1,5 +1,5 @@
 import type { ProfileData, ProfileHeatmapDay } from '../routes/profile.js';
-import { BACK_STYLE, NAV_STYLE, crewInitials, crewShade, escapeHtml, renderBack, renderMeta, renderNav, type BackLink, type NavContext } from './layout.js';
+import { BACK_STYLE, NAV_STYLE, crewInitials, crewShade, escapeHtml, formatCount, renderBack, renderMeta, renderNav, type BackLink, type NavContext } from './layout.js';
 import type { Membership } from '../crews.js';
 
 function relativeTime(iso: string, now: Date): string {
@@ -25,7 +25,7 @@ function heatmapCells(recent: ProfileHeatmapDay[]): string {
 function statBlock(label: string, ships: number, days: number): string {
   const dayNoun = days === 1 ? 'day' : 'days';
   return `<div class="stat">
-    <div class="stat-value">${ships}</div>
+    <div class="stat-value">${formatCount(ships)}</div>
     <div class="stat-label">${escapeHtml(label)}</div>
     <div class="stat-sub">${days} ${dayNoun}</div>
   </div>`;
@@ -82,7 +82,7 @@ const SHARED_STYLE = `
 function profileDescription(data: ProfileData): string {
   if (data.all.ships === 0) return `@${data.handle} on vibetime. nothing shipped yet.`;
   const rank = data.weekRank != null ? `#${data.weekRank} this week. ` : '';
-  return `${rank}${data.all.ships.toLocaleString('en-US')} ship${data.all.ships === 1 ? '' : 's'} all time, measured from git.`;
+  return `${rank}${formatCount(data.all.ships)} ship${data.all.ships === 1 ? '' : 's'} all time, measured from git.`;
 }
 
 export function renderProfile(data: ProfileData, updatedAt: Date, nav: NavContext, crews: Membership[], back: BackLink, ranks: Map<string, number>): string {
