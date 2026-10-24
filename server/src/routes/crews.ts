@@ -44,7 +44,7 @@ function knownMessage(url: URL): string | null {
 async function context(request: Request, env: Env): Promise<{ url: URL; viewer: Viewer | null; nav: NavContext }> {
   const url = new URL(request.url);
   const viewer = await currentViewer(request, env);
-  return { url, viewer, nav: { viewer, signInEnabled: signInEnabled(env), path: `${url.pathname}${url.search}` } };
+  return { url, viewer, nav: { viewer, signInEnabled: signInEnabled(env), path: `${url.pathname}${url.search}`, origin: webOrigin(env) } };
 }
 
 async function formValue(request: Request, key: string): Promise<string | null> {

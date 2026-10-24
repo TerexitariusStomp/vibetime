@@ -19,3 +19,9 @@ migrations_dir = "migrations"
 # Secrets (set via `wrangler secret put <NAME>`):
 #   GITHUB_CLIENT_ID — public OAuth client id, used to validate access tokens belong to our app
 #   JWT_SECRET       — 32-byte hex secret used to sign vibetime JWTs
+
+# Bundles the link-preview image as bytes; regenerate it from tools/og-card.html.
+[[rules]]
+type = "Data"
+globs = ["**/*.png"]
+fallthrough = true

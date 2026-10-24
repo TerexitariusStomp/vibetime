@@ -1,7 +1,7 @@
 import type { Env } from '../env.js';
 import { html, json } from '../http.js';
 import { renderLeaderboard } from '../views/leaderboard.js';
-import { currentViewer, pageCacheControl, signInEnabled } from '../web-session.js';
+import { currentViewer, pageCacheControl, signInEnabled, webOrigin } from '../web-session.js';
 import { dayKey, startOfCalendarMonth, startOfCalendarWeek } from '../window.js';
 
 const WINDOWS = {
@@ -149,7 +149,7 @@ export async function leaderboardHtml(request: Request, env: Env): Promise<Respo
   const url = new URL(request.url);
   const window = parseWindow(url.searchParams.get('window'));
   const [data, viewer] = await Promise.all([buildData(env, window), currentViewer(request, env)]);
-  const nav = { viewer, signInEnabled: signInEnabled(env), path: `${url.pathname}${url.search}` };
+  const nav = { viewer, signInEnabled: signInEnabled(env), path: `${url.pathname}${url.search}`, origin: webOrigin(env) };
   const windowStart = window === 'all' ? null
     : window === 'month' ? startOfCalendarMonth()
     : startOfCalendarWeek();

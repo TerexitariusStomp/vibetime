@@ -24,6 +24,26 @@ export interface NavContext {
   signInEnabled: boolean;
   // Where sign-in and sign-out return to: the page the bar is on.
   path: string;
+  // Link previews only resolve absolute URLs.
+  origin: string;
+}
+
+export function renderMeta(nav: NavContext, title: string, description: string): string {
+  const url = `${nav.origin}${nav.path.split('?')[0]}`;
+  const tags: [string, string, string][] = [
+    ['name', 'description', description],
+    ['property', 'og:type', 'website'],
+    ['property', 'og:site_name', 'vibetime'],
+    ['property', 'og:title', title],
+    ['property', 'og:description', description],
+    ['property', 'og:url', url],
+    ['property', 'og:image', `${nav.origin}/og.png`],
+    ['property', 'og:image:width', '1200'],
+    ['property', 'og:image:height', '630'],
+    ['property', 'og:image:alt', 'vibetime: track what you actually ship with AI.'],
+    ['name', 'twitter:card', 'summary_large_image'],
+  ];
+  return tags.map(([k, n, v]) => `<meta ${k}="${n}" content="${escapeHtml(v)}">`).join('\n');
 }
 
 export interface BackLink {
@@ -140,7 +160,7 @@ export function renderNotice(title: string, body: string, action?: { href: strin
 </head>
 <body>
 <main>
-  ${renderNav(null, { viewer: null, signInEnabled: false, path: '/leaderboard' })}
+  ${renderNav(null, { viewer: null, signInEnabled: false, path: '/leaderboard', origin: '' })}
   <h1>${escapeHtml(title)}</h1>
   <p>${escapeHtml(body)}</p>
   <div class="actions">${action ? `<a href="${escapeHtml(action.href)}">${escapeHtml(action.label)}</a>` : ''}<a href="/leaderboard">back to the leaderboard</a></div>

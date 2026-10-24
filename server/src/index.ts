@@ -11,6 +11,7 @@ import {
   invitePost, inviteHtml, lowercaseCrewRedirect, newCrewHtml, parseCrewPath, parseInvitePath,
 } from './routes/crews.js';
 import { faviconResponse } from './views/favicon.js';
+import { ogImageResponse } from './views/og.js';
 import { error } from './http.js';
 import { CLI_RECOMMENDED } from './release.js';
 
@@ -101,6 +102,8 @@ export default {
         case 'GET /favicon.svg':
         case 'GET /favicon.ico':
           return faviconResponse();
+        case 'GET /og.png':
+          return ogImageResponse();
         case 'GET /':
           return Response.redirect(new URL('/leaderboard', request.url).toString(), 302);
         default:

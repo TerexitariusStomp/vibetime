@@ -1,6 +1,6 @@
 import type { BoardEntry, Crew, CrewWindow, Face, MemberEntry } from '../crews.js';
 import { MAX_CREWS_PER_USER, MAX_MEMBERS, MIN_MEMBERS_TO_RANK, NAME_MAX, slugFor } from '../crews.js';
-import { BACK_STYLE, NAV_STYLE, crewInitials, crewShade, escapeHtml, renderBack, renderNav, type BackLink, type NavContext, type NavPlace } from './layout.js';
+import { BACK_STYLE, NAV_STYLE, crewInitials, crewShade, escapeHtml, renderBack, renderMeta, renderNav, type BackLink, type NavContext, type NavPlace } from './layout.js';
 import { heatmapCells, relativeTime, windowRange } from './leaderboard.js';
 
 const WINDOW_LABEL: Record<CrewWindow, string> = { week: 'this week', month: 'this month', all: 'all time' };
@@ -147,7 +147,12 @@ const STYLE = `
   }
 `;
 
-function page(title: string, place: NavPlace, nav: NavContext, body: string): string {
+interface Preview {
+  title: string;
+  description: string;
+}
+
+function page(title: string, place: NavPlace, nav: NavContext, body: string, preview?: Preview): string {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -155,6 +160,7 @@ function page(title: string, place: NavPlace, nav: NavContext, body: string): st
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escapeHtml(title)}</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+${preview ? renderMeta(nav, preview.title, preview.description) : ''}
 <style>${STYLE}</style>
 <script src="${COPY_SCRIPT_URL}" defer></script>
 </head>
@@ -183,6 +189,10 @@ function tabs(base: string, window: CrewWindow): string {
 
 function rangeLabel(window: CrewWindow, start: Date | null, now: Date): string {
   return start ? ` <span class="range">· ${windowRange(start, now)}</span>` : '';
+}
+
+function membersLabel(n: number): string {
+  return `${n} member${n === 1 ? '' : 's'}`;
 }
 
 function postButton(action: string, label: string, cls = 'btn', fields: Record<string, string> = {}): string {
@@ -223,7 +233,10 @@ export function renderCrewBoard(
     <thead><tr><th class="r">#</th><th>crew</th><th class="r">ships</th><th class="hide-sm">members</th><th class="hide-sm">top shipper</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>
-  <footer>a crew's number is its members' verified ships, the same ones on the leaderboard, counted for every week they were in the crew. crews are ranked once they have ${MIN_MEMBERS_TO_RANK} members. open crews take anyone; the rest join by invite link.</footer>`);
+  <footer>a crew's number is its members' verified ships, the same ones on the leaderboard, counted for every week they were in the crew. crews are ranked once they have ${MIN_MEMBERS_TO_RANK} members. open crews take anyone; the rest join by invite link.</footer>`, {
+    title: 'vibetime crews',
+    description: `${board.length} crew${board.length === 1 ? '' : 's'} shipping together on vibetime. ${total} ships ${WINDOW_LABEL[window]}.`,
+  });
 }
 
 export interface CrewViewerState {
@@ -320,7 +333,10 @@ export function renderCrew(
     <tbody>${rows}</tbody>
   </table>
   ${memberTools}
-  ${ownerTools}`);
+  ${ownerTools}`, {
+    title: `${crew.name} on vibetime`,
+    description: `a crew of ${membersLabel(crew.memberCount)}, ${ships} ships ${WINDOW_LABEL[window]}${rank ? `, #${rank.rank} of ${rank.count} crew${rank.count === 1 ? '' : 's'}` : ''}. started by @${crew.ownerHandle}.`,
+  });
 }
 
 export function renderInvite(
@@ -346,7 +362,10 @@ export function renderInvite(
     ${action}
     <p class="fine">joining puts your handle and ship counts on this crew's public page. you can leave any time.</p>
     ${state === 'signed-out' || needsCli ? install : ''}
-  </div>`);
+  </div>`, {
+    title: `join ${crew.name} on vibetime`,
+    description: `you're invited. ${membersLabel(crew.memberCount)}, ${weekShips} ships this week${rank ? `, #${rank} of ${crewCount} crew${crewCount === 1 ? '' : 's'}` : ''}. started by @${crew.ownerHandle}.`,
+  });
 }
 
 export function renderInviteGone(nav: NavContext): string {

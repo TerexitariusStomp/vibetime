@@ -1,5 +1,5 @@
 import type { HeatmapDay, LeaderboardData } from '../routes/leaderboard.js';
-import { NAV_STYLE, escapeHtml, renderNav, type NavContext } from './layout.js';
+import { NAV_STYLE, escapeHtml, renderMeta, renderNav, type NavContext } from './layout.js';
 
 type Window = 'week' | 'month' | 'all';
 
@@ -84,6 +84,7 @@ vibe login</pre>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>vibetime leaderboard</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+${renderMeta(nav, 'vibetime leaderboard', `who shipped the most with AI ${SCALE_WINDOW_LABEL[window]}: ${devCount} ${devNoun}, ${sessionCount} ${sessionNoun}, measured from git.`)}
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
