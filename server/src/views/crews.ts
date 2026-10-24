@@ -1,6 +1,6 @@
 import type { BoardEntry, Crew, CrewWindow, Face, MemberEntry } from '../crews.js';
 import { MAX_CREWS_PER_USER, MAX_MEMBERS, MIN_MEMBERS_TO_RANK, NAME_MAX, slugFor } from '../crews.js';
-import { BACK_STYLE, NAV_STYLE, crewInitials, crewShade, escapeHtml, renderBack, renderMeta, renderNav, type BackLink, type NavContext, type NavPlace } from './layout.js';
+import { BACK_STYLE, NAV_STYLE, crewInitials, crewShade, escapeHtml, formatCount, renderBack, renderMeta, renderNav, type BackLink, type NavContext, type NavPlace } from './layout.js';
 import { heatmapCells, relativeTime, windowRange } from './leaderboard.js';
 
 const WINDOW_LABEL: Record<CrewWindow, string> = { week: 'this week', month: 'this month', all: 'all time' };
@@ -215,7 +215,7 @@ export function renderCrewBoard(
       return `<tr${yours ? ' class="you"' : ''}>
         <td class="rank${c.rank !== null && c.rank <= 3 ? ' rank-top' : ''}">${c.rank ?? '–'}</td>
         <td><a class="who" href="/crew/${escapeHtml(c.slug)}">${monogram(c.name, c.slug)}<span style="min-width:0"><span class="nm">${escapeHtml(c.name)}</span>${yours ? '<span class="tag">your crew</span>' : c.open ? '<span class="tag tag-open">open</span>' : ''}<span class="meta">${c.memberCount} member${c.memberCount === 1 ? '' : 's'}${c.open ? '' : ' · invite only'}${c.rank === null ? ` · needs ${MIN_MEMBERS_TO_RANK - c.memberCount} more member${MIN_MEMBERS_TO_RANK - c.memberCount === 1 ? '' : 's'} to rank` : ''}</span></span></a></td>
-        <td class="ships">${c.ships}<small>${Math.round(c.ships / Math.max(1, c.memberCount))} / member</small></td>
+        <td class="ships">${formatCount(c.ships)}<small>${formatCount(Math.round(c.ships / Math.max(1, c.memberCount)))} / member</small></td>
         <td class="hide-sm"><span class="faces">${c.faces.map((f) => face(f)).join('')}${c.memberCount > c.faces.length ? `<span class="more">+${c.memberCount - c.faces.length}</span>` : ''}</span></td>
         <td class="hide-sm">${c.top ? `<a class="top" href="/@${escapeHtml(c.top.handle)}">${face(c.top, 'top-face')}<span class="nm">${escapeHtml(c.top.handle)}</span></a>` : ''}</td>
       </tr>`;
@@ -224,7 +224,7 @@ export function renderCrewBoard(
   <div class="head">
     <div>
       <h1>crews</h1>
-      <p class="scale"><strong>${board.length}</strong> crew${board.length === 1 ? '' : 's'}${rankedCount < board.length ? ` · <strong>${rankedCount}</strong> ranked` : ''} · <strong>${total}</strong> ships ${WINDOW_LABEL[window]}${rangeLabel(window, start, now)}</p>
+      <p class="scale"><strong>${board.length}</strong> crew${board.length === 1 ? '' : 's'}${rankedCount < board.length ? ` · <strong>${rankedCount}</strong> ranked` : ''} · <strong>${formatCount(total)}</strong> ships ${WINDOW_LABEL[window]}${rangeLabel(window, start, now)}</p>
     </div>
     ${start_}
   </div>
@@ -235,7 +235,7 @@ export function renderCrewBoard(
   </table>
   <footer>a crew's number is its members' verified ships, the same ones on the leaderboard, counted for every week they were in the crew. crews are ranked once they have ${MIN_MEMBERS_TO_RANK} members. open crews take anyone; the rest join by invite link.</footer>`, {
     title: 'vibetime crews',
-    description: `${board.length} crew${board.length === 1 ? '' : 's'} shipping together on vibetime. ${total} ships ${WINDOW_LABEL[window]}.`,
+    description: `${board.length} crew${board.length === 1 ? '' : 's'} shipping together on vibetime. ${formatCount(total)} ships ${WINDOW_LABEL[window]}.`,
   });
 }
 
@@ -267,7 +267,7 @@ export function renderCrew(
   }
 
   const rankStat = rank
-    ? `<div class="stat"><div class="v">#${rank.rank}</div><div class="l">rank</div><div class="s">${rank.above ? `${rank.above.ships - ships} behind ${escapeHtml(rank.above.name)}` : `top of ${rank.count} crew${rank.count === 1 ? '' : 's'}`}</div></div>`
+    ? `<div class="stat"><div class="v">#${rank.rank}</div><div class="l">rank</div><div class="s">${rank.above ? `${formatCount(rank.above.ships - ships)} behind ${escapeHtml(rank.above.name)}` : `top of ${rank.count} crew${rank.count === 1 ? '' : 's'}`}</div></div>`
     : `<div class="stat"><div class="v">–</div><div class="l">rank</div><div class="s">needs ${MIN_MEMBERS_TO_RANK} members</div></div>`;
 
   const rows = members.length === 0
@@ -278,7 +278,7 @@ export function renderCrew(
       return `<tr${you ? ' class="you"' : ''}>
         <td class="rank${i < 3 && m.ships > 0 ? ' rank-top' : ''}">${i + 1}</td>
         <td><div class="who"><a class="who" href="/@${escapeHtml(m.handle)}">${avatar(m.avatarUrl, 24)}<span class="nm">${escapeHtml(m.handle)}</span></a>${you ? '<span class="tag">you</span>' : ''}${m.githubId === crew.ownerGithubId ? '<span class="tag">owner</span>' : ''}${m.current ? '' : '<span class="tag tag-left">left</span>'}${removable ? ` <a class="sub" style="margin:0 0 0 6px" href="${base}/confirm?action=remove&amp;member=${m.githubId}">remove</a>` : ''}</div></td>
-        <td class="ships">${m.ships}<small>${m.days} day${m.days === 1 ? '' : 's'}</small></td>
+        <td class="ships">${formatCount(m.ships)}<small>${m.days} day${m.days === 1 ? '' : 's'}</small></td>
         <td class="hide-sm"><span class="heatmap">${heatmapCells(m.recentDays)}</span></td>
         <td class="last hide-sm">${m.lastShippedAt ? escapeHtml(relativeTime(m.lastShippedAt, now)) : '–'}</td>
       </tr>`;
@@ -317,12 +317,12 @@ export function renderCrew(
   <div class="head">
     <div class="who" style="gap:14px">${monogram(crew.name, crew.slug, true)}<div>
       <h1 style="color:#e5e5e5;font-size:22px">${escapeHtml(crew.name)}${crew.open ? ' <span class="tag tag-open">open</span>' : ''}</h1>
-      <p class="sub">${crew.memberCount} member${crew.memberCount === 1 ? '' : 's'} · started by <a href="/@${escapeHtml(crew.ownerHandle)}">@${escapeHtml(crew.ownerHandle)}</a>${rank ? ` · <span style="color:#c4b5fd">#${rank.rank} of ${rank.count} crews</span>` : ''}</p>
+      <p class="sub">${crew.memberCount} member${crew.memberCount === 1 ? '' : 's'} · started by <a href="/@${escapeHtml(crew.ownerHandle)}">@${escapeHtml(crew.ownerHandle)}</a>${rank ? ` · <span style="color:#c4b5fd">#${rank.rank} of ${rank.count} crew${rank.count === 1 ? '' : 's'}</span>` : ''}</p>
     </div></div>
     ${access}
   </div>
   <div class="stats">
-    <div class="stat"><div class="v">${ships}</div><div class="l">ships</div><div class="s">${WINDOW_LABEL[window]}</div></div>
+    <div class="stat"><div class="v">${formatCount(ships)}</div><div class="l">ships</div><div class="s">${WINDOW_LABEL[window]}</div></div>
     ${rankStat}
     <div class="stat"><div class="v">${shipping}/${crew.memberCount}</div><div class="l">shipping</div><div class="s">members ${WINDOW_LABEL[window]}</div></div>
   </div>
@@ -335,7 +335,7 @@ export function renderCrew(
   ${memberTools}
   ${ownerTools}`, {
     title: `${crew.name} on vibetime`,
-    description: `a crew of ${membersLabel(crew.memberCount)}, ${ships} ships ${WINDOW_LABEL[window]}${rank ? `, #${rank.rank} of ${rank.count} crew${rank.count === 1 ? '' : 's'}` : ''}. started by @${crew.ownerHandle}.`,
+    description: `a crew of ${membersLabel(crew.memberCount)}, ${formatCount(ships)} ships ${WINDOW_LABEL[window]}${rank ? `, #${rank.rank} of ${rank.count} crew${rank.count === 1 ? '' : 's'}` : ''}. started by @${crew.ownerHandle}.`,
   });
 }
 
@@ -357,14 +357,14 @@ export function renderInvite(
     <div class="invited">you're invited to join a crew on vibetime</div>
     <div style="margin-top:16px">${monogram(crew.name, crew.slug, true)}</div>
     <h2>${escapeHtml(crew.name)}</h2>
-    <p class="facts">started by @${escapeHtml(crew.ownerHandle)}<br><strong>${crew.memberCount}</strong> member${crew.memberCount === 1 ? '' : 's'} · <strong>${weekShips}</strong> ships this week${rank ? ` · <strong>#${rank}</strong> of ${crewCount} crews` : ''}</p>
+    <p class="facts">started by @${escapeHtml(crew.ownerHandle)}<br><strong>${crew.memberCount}</strong> member${crew.memberCount === 1 ? '' : 's'} · <strong>${formatCount(weekShips)}</strong> ships this week${rank ? ` · <strong>#${rank}</strong> of ${crewCount} crew${crewCount === 1 ? '' : 's'}` : ''}</p>
     ${avatars.length ? `<div class="stack">${avatars.map((a) => avatar(a, 22)).join('')}</div>` : ''}
     ${action}
     <p class="fine">joining puts your handle and ship counts on this crew's public page. you can leave any time.</p>
     ${state === 'signed-out' || needsCli ? install : ''}
   </div>`, {
     title: `join ${crew.name} on vibetime`,
-    description: `you're invited. ${membersLabel(crew.memberCount)}, ${weekShips} ships this week${rank ? `, #${rank} of ${crewCount} crew${crewCount === 1 ? '' : 's'}` : ''}. started by @${crew.ownerHandle}.`,
+    description: `you're invited. ${membersLabel(crew.memberCount)}, ${formatCount(weekShips)} ships this week${rank ? `, #${rank} of ${crewCount} crew${crewCount === 1 ? '' : 's'}` : ''}. started by @${crew.ownerHandle}.`,
   });
 }
 

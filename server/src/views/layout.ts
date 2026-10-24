@@ -17,6 +17,10 @@ export function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 }
 
+export function formatCount(n: number): string {
+  return n.toLocaleString('en-US');
+}
+
 export type NavPlace = 'leaderboard' | 'crews' | 'stats' | null;
 
 export interface NavContext {
