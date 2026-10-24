@@ -28,7 +28,6 @@ export const SITE_CSS = `
   --heat-0: #1D1B26; --heat-1: #3A2C66; --heat-2: #5B45B3; --heat-3: #8B6CF0; --heat-4: #C4B5FD;
   --seg-track: #13121A; --seg-on: #262330;
   --pod-top: #2E2A3A; --pod-front: #1F1C29; --pod-side: #16141E;
-  --sky-shade: #000000;
   --gem-1: #C4B5FD; --gem-2: #A78BFA; --gem-3: #7C3AED; --gem-4: #5B21B6;
   --on-crew: #0B0A0F;
   --font: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
@@ -48,7 +47,6 @@ export const SITE_CSS = `
   --heat-0: #ECE9F2; --heat-1: #DCD2FB; --heat-2: #B8A3F6; --heat-3: #8B6CF0; --heat-4: #6D28D9;
   --seg-track: #F4F2F8; --seg-on: #FFFFFF;
   --pod-top: #F1EEF6; --pod-front: #E4E0EC; --pod-side: #D4CEE0;
-  --sky-shade: #2E1065;
   color-scheme: light;
 }
 @font-face { font-family: "Geist Mono"; src: url(${FONT_URL}) format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
@@ -293,6 +291,7 @@ tr.you td, tbody tr.you:hover td { background: var(--accent-wash); border-top: 1
 .pod.you .av { outline: 2px solid var(--accent); outline-offset: 2px; }
 .pod-n { color: var(--accent); font-size: 15px; font-weight: 600; }
 .pod-n small { color: var(--text-3); font-size: 12px; font-weight: 400; }
+.pod-d { margin-top: -4px; color: var(--text-3); font-size: 11px; }
 .pod-block { --h: 56px; --top: var(--pod-top); position: relative; align-self: stretch; display: grid; place-items: center; height: var(--h); margin: 14px 12px 0 0; background: var(--pod-front); transform-origin: bottom; animation: rise 420ms steps(6, end) both; }
 .pod-block::before { content: ""; position: absolute; left: 0; right: -12px; top: -8px; height: 8px; background: var(--top); clip-path: polygon(0 100%, 12px 0, 100% 0, calc(100% - 12px) 100%); }
 .pod-block::after { content: ""; position: absolute; top: -8px; right: -12px; bottom: 0; width: 12px; background: var(--pod-side); clip-path: polygon(0 8px, 100% 0, 100% calc(100% - 8px), 0 100%); }
@@ -305,15 +304,13 @@ tr.you td, tbody tr.you:hover td { background: var(--accent-wash); border-top: 1
 /* Your row stays in view at the bottom until you scroll to where it is. */
 .board tr.you td { position: sticky; bottom: 0; }
 
-/* skyline */
-.sky { display: block; width: 100%; max-width: 620px; height: auto; margin: 0 auto; }
-.sky .l0 { --c: var(--heat-0); } .sky .l1 { --c: var(--heat-1); } .sky .l2 { --c: var(--heat-2); } .sky .l3 { --c: var(--heat-3); } .sky .l4 { --c: var(--heat-4); }
-.sky .t { fill: var(--c); }
-.sky .a { fill: color-mix(in oklab, var(--c), var(--sky-shade) 25%); }
-.sky .b { fill: color-mix(in oklab, var(--c), var(--sky-shade) 42%); }
-.sky g { transform-box: fill-box; transform-origin: 50% 100%; animation: rise 520ms steps(6, end) both; animation-delay: calc(var(--d, 0) * 32ms); }
-.sky-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; color: var(--text-3); font-size: 12px; }
-.sky-foot b { color: var(--text); font-weight: 600; }
+/* twelve weeks */
+.weeks { display: block; width: 100%; max-width: 460px; height: auto; margin: 0 auto 16px; }
+.weeks rect { fill: var(--heat-0); }
+.weeks .l1 { fill: var(--heat-1); } .weeks .l2 { fill: var(--heat-2); } .weeks .l3 { fill: var(--heat-3); } .weeks .l4 { fill: var(--heat-4); }
+.weeks text { fill: var(--text-3); font-family: inherit; font-size: 8px; }
+.weeks-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; color: var(--text-3); font-size: 12px; }
+.weeks-foot b { color: var(--text); font-weight: 600; }
 
 /* home */
 .hero { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 48px; align-items: center; padding: 64px 0 48px; }
@@ -349,11 +346,6 @@ tr.you td, tbody tr.you:hover td { background: var(--accent-wash); border-top: 1
 .mini .n { color: var(--accent); font-weight: 600; }
 .mini .mono { width: 24px; height: 24px; border-radius: 5px; font-size: 10px; }
 .mini-empty { margin: 0; padding: 16px; color: var(--text-2); font-size: 13px; }
-.tiers td { padding: 12px 16px; vertical-align: top; }
-.tiers tr:last-child td { border-bottom: 0; }
-.tiers td:first-child { width: 128px; padding-top: 15px; }
-.tn { font-weight: 600; } .tn-on { color: var(--accent); }
-.tm { display: block; color: var(--text-2); font-size: 13px; }
 .trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .trio > div { display: grid; align-content: start; gap: 4px; color: var(--text-2); font-size: 13px; }
 .trio b { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 14px; font-weight: 600; }

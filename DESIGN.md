@@ -48,7 +48,6 @@ a new one, add a token to both themes.
 | heat | `--heat-0` .. `--heat-4` | ships a day: 0, 1-2, 3-5, 6-11, 12+ |
 | segmented | `--seg-track` `--seg-on` | tab tracks and the selected tab |
 | podium | `--pod-top` `--pod-front` `--pod-side` | the three faces of a podium step |
-| skyline | `--sky-shade` | what the skyline's side faces are shaded toward: black in dark, deep violet in light |
 | gem | `--gem-1` .. `--gem-4` | the four gem facets, light to dark |
 | crews | `CREW_SHADES` in `layout.ts`, text in `--on-crew` | a crew's color, picked by a hash of its slug |
 
@@ -69,8 +68,8 @@ breakpoint at 640px.
 
 **Motion.** `--t-fast` 120ms for hover and press, `--t-slow` 320ms for
 entrances, `--ease-out` for both. Animate `transform` and `opacity` only.
-What moves today: heat cells settle in left to right, the podium steps and the
-skyline's bars rise in six frames, the live dot pulses, the gem's facets shift
+What moves today: heat cells settle in left to right, the podium steps rise
+in six frames, the live dot pulses, the gem's facets shift
 on hover, and moving between pages cross-fades with `@view-transition`. Window
 tabs swap in place without it, so a click answers at once.
 `prefers-reduced-motion` turns all of it off.
@@ -101,7 +100,7 @@ shape in the top bar, the footer, notices and the favicon.
 | `.input` `.field` `.hint` | form controls |
 | `table` `td.rank` `td.ships` `td.heat` `td.last` `.who` `.nm` `.meta` `.meta-sm` | ranked tables. `.meta-sm` repeats the hidden columns on phones |
 | `tr.you` `.tag-you` | your own row and label. On the leaderboard (`.board`) it stays pinned to the bottom of the screen until you reach it |
-| `.sky` `.sky-foot` | the profile skyline: one isometric bar per day for twelve weeks, built as SVG on the server, with the totals in text underneath |
+| `.weeks` `.weeks-foot` | the profile's last twelve weeks: one square per day in the heat scale, a column per week, built as SVG on the server, with the totals in text underneath |
 | `.podium` `.pod` `.pod-block` | the top three of a window on flat isometric steps; the table carries on from #4 |
 | `.heatmap` `.cell` `.cell-0` .. `.cell-4` `.legend` | heat cells. Always give the row a text equivalent (`aria-label` or `title`) |
 | `.stats` `.stat` `.v` `.l` `.s` | number tiles: value, label, context |
@@ -121,7 +120,7 @@ shape in the top bar, the footer, notices and the favicon.
 | `.kpis` `.kpi` | a row of headline numbers that links to the page behind them |
 | `.sec-h` | a section title with an optional "see all" link |
 | `.split` `.mini` | short ranked lists side by side |
-| `.tiers` `.trio` | a table of rules; three short facts in a row |
+| `.trio` | three short facts in a row |
 | `.foot` | footer |
 
 If a new page needs something that is not here, add it to `SITE_CSS` with

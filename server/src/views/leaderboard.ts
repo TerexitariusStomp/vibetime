@@ -72,7 +72,7 @@ function podium(top: LeaderboardEntry[], window: Window, viewer: string | null):
   return `<ol class="podium" aria-label="top three ${SCALE_WINDOW_LABEL[window]}">${top.map((e) => {
     const handle = escapeHtml(e.handle);
     const you = viewer === e.handle.toLowerCase();
-    return `<li class="pod pod-${e.rank}${you ? ' you' : ''}"><a class="pod-who" href="/@${handle}">${avatar(e.avatarUrl, e.rank === 1 ? 56 : 44)}<span class="nm">${handle}</span>${you ? '<span class="tag tag-you">you</span>' : ''}</a><span class="pod-n">${formatCount(e.shippedCount)}<small> ships</small></span><div class="pod-block" aria-hidden="true"><span class="pod-r">${e.rank}</span></div></li>`;
+    return `<li class="pod pod-${e.rank}${you ? ' you' : ''}"><a class="pod-who" href="/@${handle}">${avatar(e.avatarUrl, e.rank === 1 ? 56 : 44)}<span class="nm">${handle}</span>${you ? '<span class="tag tag-you">you</span>' : ''}</a><span class="pod-n">${formatCount(e.shippedCount)}<small> ships</small></span><span class="pod-d">on ${e.dayCount} day${e.dayCount === 1 ? '' : 's'}</span><div class="pod-block" aria-hidden="true"><span class="pod-r">${e.rank}</span></div></li>`;
   }).join('')}</ol>`;
 }
 
@@ -115,8 +115,8 @@ export function renderLeaderboard(data: LeaderboardData, window: Window, updated
     <div><h1>leaderboard</h1>${scaleLine}</div>
     <nav class="tabs" aria-label="window">${tab('this week', 'week', window)}${tab('this month', 'month', window)}${tab('all time', 'all', window)}</nav>
   </header>
-  ${entries.length ? podium(entries.slice(0, 3), window, viewer) : ''}
   <a class="callout" href="/crews">${icon('users')}<span>crews: start one with your people and compete as a group</span>${icon('arrow-right', 'go')}</a>
+  ${entries.length ? podium(entries.slice(0, 3), window, viewer) : ''}
   ${entries.length > 0 && entries.length <= 3 ? '' : `<table class="board">
     <thead>
       <tr>

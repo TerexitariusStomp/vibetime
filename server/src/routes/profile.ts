@@ -6,7 +6,7 @@ import { badgeValue, renderBadge, renderProfile, renderProfileNotFound } from '.
 import { crewBoard, crewsOf } from '../crews.js';
 import { dayKey, startOfCalendarMonth, startOfCalendarWeek } from '../window.js';
 
-// The skyline: this week and the eleven before it, Monday first.
+// The last twelve weeks on a profile: this week and the eleven before it, Monday first.
 const SKYLINE_WEEKS = 12;
 
 export interface ProfileWindowStats {

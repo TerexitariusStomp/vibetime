@@ -6,7 +6,7 @@ import type { Membership } from '../crews.js';
 
 function statBlock(label: string, ships: number, days: number): string {
   const dayNoun = days === 1 ? 'day' : 'days';
-  return `<div class="stat"><div class="v">${formatCount(ships)}</div><div class="l">${escapeHtml(label)}</div><div class="s">${days} ${dayNoun}</div></div>`;
+  return `<div class="stat"><div class="v">${formatCount(ships)}</div><div class="l">${escapeHtml(label)}</div><div class="s">on ${days} ${dayNoun}</div></div>`;
 }
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
@@ -14,24 +14,23 @@ function dayLabel(day: string): string {
   return `${MONTHS[Number(day.slice(5, 7)) - 1]} ${Number(day.slice(8, 10))}`;
 }
 
-// Twelve weeks as isometric bars, one per day: weeks run from the back to the
-// front, Monday to Sunday from right to left. Height follows the square root of
-// the day's ships, so one huge day does not flatten the rest.
-function skyline(days: ProfileHeatmapDay[], label: string): string {
-  const max = Math.max(1, ...days.map((d) => d.n));
-  const pt = (x: number, y: number, z: number): [number, number] => [(x - y) * 13, (x + y) * 7.4 - z];
-  const bars = days.map((d, i) => ({ ...d, x: Math.floor(i / 7), y: i % 7 })).sort((p, q) => p.x + p.y - (q.x + q.y));
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  const parts = bars.map((b) => {
-    const h = b.n ? 4 + Math.sqrt(b.n / max) * 50 : 1.5;
-    const g = [pt(b.x, b.y, 0), pt(b.x + 0.74, b.y, 0), pt(b.x + 0.74, b.y + 0.74, 0), pt(b.x, b.y + 0.74, 0)];
-    const t = g.map(([u, v]): [number, number] => [u, v - h]);
-    for (const [u, v] of [...g, ...t]) { minX = Math.min(minX, u); maxX = Math.max(maxX, u); minY = Math.min(minY, v); maxY = Math.max(maxY, v); }
-    const pts = (face: [number, number][]) => face.map(([u, v]) => `${u.toFixed(1)},${v.toFixed(1)}`).join(' ');
-    return `<g class="l${heatLevel(b.n)}" style="--d:${b.x}"><title>${dayLabel(b.day)} · ${b.n} ship${b.n === 1 ? '' : 's'}</title><polygon class="a" points="${pts([g[3], g[2], t[2], t[3]])}"/><polygon class="b" points="${pts([g[1], g[2], t[2], t[1]])}"/><polygon class="t" points="${pts(t)}"/></g>`;
+// Twelve weeks as a flat grid, a column per week and Monday on top, so any day
+// can be found at a glance and none hides behind another.
+function weekGrid(days: ProfileHeatmapDay[], label: string): string {
+  const step = 20, size = 16, left = 28, top = 14;
+  const weeks = Math.ceil(days.length / 7);
+  const cells = days.map((d, i) => {
+    const x = left + Math.floor(i / 7) * step, y = top + (i % 7) * step;
+    return `<rect class="l${heatLevel(d.n)}" x="${x}" y="${y}" width="${size}" height="${size}" rx="3"><title>${dayLabel(d.day)} · ${d.n} ship${d.n === 1 ? '' : 's'}</title></rect>`;
   });
-  const box = [minX - 4, minY - 4, maxX - minX + 8, maxY - minY + 8].map((n) => n.toFixed(0)).join(' ');
-  return `<svg class="sky" viewBox="${box}" role="img" aria-label="${escapeHtml(label)}">${parts.join('')}</svg>`;
+  const rows = [['mon', 0], ['wed', 2], ['fri', 4], ['sun', 6]] as const;
+  const rowLabels = rows.map(([name, r]) => `<text x="0" y="${top + r * step + 12}">${name}</text>`);
+  // A month's name sits over the first week that starts in it.
+  const monthLabels = days.filter((d, i) => i % 7 === 0 && (i === 0 || d.day.slice(5, 7) !== days[i - 7].day.slice(5, 7)))
+    .map((d) => `<text x="${left + (days.indexOf(d) / 7) * step}" y="9">${MONTHS[Number(d.day.slice(5, 7)) - 1]}</text>`);
+  const width = left + weeks * step - (step - size);
+  const height = top + 7 * step - (step - size);
+  return `<svg class="weeks" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(label)}">${monthLabels.join('')}${rowLabels.join('')}${cells.join('')}</svg>`;
 }
 
 // A shields-sized badge for READMEs. It is shown as an image on other sites, so
@@ -64,7 +63,7 @@ function profileDescription(data: ProfileData): string {
   return `${rank}${formatCount(data.all.ships)} ship${data.all.ships === 1 ? '' : 's'} all time, measured from git.`;
 }
 
-function skylinePanel(days: ProfileHeatmapDay[]): string {
+function weeksPanel(days: ProfileHeatmapDay[]): string {
   const shipped = days.filter((d) => d.n > 0);
   const total = shipped.reduce((sum, d) => sum + d.n, 0);
   const best = days.reduce((a, d) => (d.n > a.n ? d : a), days[0]);
@@ -75,7 +74,7 @@ function skylinePanel(days: ProfileHeatmapDay[]): string {
     ? `<span>${summary}</span>`
     : `<span><b>${formatCount(total)}</b> ships · <b>${shipped.length}</b> days · best <b>${best.n}</b> on ${dayLabel(best.day)}</span>`;
   return `<section class="panel"><div class="panel-h"><h2>last 12 weeks</h2><span>${dayLabel(days[0].day)} – ${dayLabel(days[days.length - 1].day)}</span></div>
-    <div class="panel-b">${skyline(days, summary)}<div class="sky-foot">${foot}${LEGEND}</div></div></section>`;
+    <div class="panel-b">${weekGrid(days, summary)}<div class="weeks-foot">${foot}${LEGEND}</div></div></section>`;
 }
 
 export function renderProfile(data: ProfileData, updatedAt: Date, nav: NavContext, crews: Membership[], back: BackLink, ranks: Map<string, number>): string {
@@ -92,7 +91,7 @@ export function renderProfile(data: ProfileData, updatedAt: Date, nav: NavContex
       : '';
   const activity = data.all.ships === 0
     ? `<div class="empty"><p><b>nothing shipped. yet.</b></p></div>`
-    : skylinePanel(data.days);
+    : weeksPanel(data.days);
 
   return renderPage({
     title: `@${data.handle} · vibetime`,
