@@ -1,5 +1,5 @@
 import type { ProfileData, ProfileHeatmapDay } from '../routes/profile.js';
-import { avatar, crewInitials, crewShade, escapeHtml, formatCount, renderBack, renderPage, type BackLink, type NavContext } from './layout.js';
+import { avatar, command, crewInitials, crewShade, escapeHtml, formatCount, renderBack, renderPage, type BackLink, type NavContext } from './layout.js';
 import { LEGEND, heatLevel, liveDot, relativeTime } from './leaderboard.js';
 import { icon } from './style.js';
 import type { Membership } from '../crews.js';
@@ -32,6 +32,30 @@ function skyline(days: ProfileHeatmapDay[], label: string): string {
   });
   const box = [minX - 4, minY - 4, maxX - minX + 8, maxY - minY + 8].map((n) => n.toFixed(0)).join(' ');
   return `<svg class="sky" viewBox="${box}" role="img" aria-label="${escapeHtml(label)}">${parts.join('')}</svg>`;
+}
+
+// A shields-sized badge for READMEs. It is shown as an image on other sites, so
+// it cannot read the page's tokens: the colors are fixed and readable on both
+// GitHub themes. Text widths are pinned with textLength, so whichever monospace
+// font the reader has, the badge measures the same.
+export function renderBadge(value: string, found: boolean): string {
+  const lw = Math.round(8 * 6.6);
+  const rw = Math.round(value.length * 6.6);
+  const left = 6 + 12 + 5 + lw + 7;
+  const right = 7 + rw + 7;
+  const width = left + right;
+  const text = escapeHtml(value);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="20" viewBox="0 0 ${width} 20" role="img" aria-label="vibetime: ${text}"><title>vibetime: ${text}</title><rect width="${width}" height="20" rx="4" fill="#16141D"/><path d="M${left} 0h${right - 4}a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4h-${right - 4}z" fill="${found ? '#6D28D9' : '#6A657C'}"/><g transform="translate(6 4) scale(.1875)"><path fill="#C4B5FD" d="M32 4 4 30 28 34Z"/><path fill="#A78BFA" d="M32 4 28 34 60 30Z"/><path fill="#7C3AED" d="M4 30 32 60 28 34Z"/><path fill="#5B21B6" d="M28 34 32 60 60 30Z"/></g><g font-family="'Geist Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" font-size="11"><text x="23" y="14" textLength="${lw}" fill="#EEECF4">vibetime</text><text x="${left + 7}" y="14" textLength="${rw}" fill="#FFFFFF">${text}</text></g></svg>`;
+}
+
+export function badgeValue(ships: number, window: 'week' | 'month' | 'all'): string {
+  return `${formatCount(ships)} ship${ships === 1 ? '' : 's'}${window === 'all' ? '' : ` this ${window}`}`;
+}
+
+function badgePanel(handle: string, ships: number, origin: string): string {
+  const page = `${origin}/@${handle}`;
+  return `<section class="panel"><div class="panel-h"><h2>add vibetime to your README</h2><span>updates every hour</span></div>
+    <div class="panel-b">${renderBadge(badgeValue(ships, 'all'), true)}${command([`[![vibetime](${page}/badge.svg)](${page})`], false)}<p class="fine">add <code>?window=week</code> or <code>?window=month</code> to the badge address for that window.</p></div></section>`;
 }
 
 function profileDescription(data: ProfileData): string {
@@ -90,7 +114,8 @@ export function renderProfile(data: ProfileData, updatedAt: Date, nav: NavContex
     ${statBlock('this month', data.month.ships, data.month.days)}
     ${statBlock('all time', data.all.ships, data.all.days)}
   </div>
-  ${activity}`,
+  ${activity}
+  ${nav.viewer && nav.viewer.handle.toLowerCase() === data.handle.toLowerCase() ? badgePanel(data.handle, data.all.ships, nav.origin) : ''}`,
   });
 }
 

@@ -82,6 +82,10 @@ Line icons are drawn on a 20px grid with a 1.5px stroke, round caps and
 add one, draw it on the same grid and add its paths to `ICONS`. Do not use
 emoji or text glyphs as icons.
 
+The favicon and the README badge (`renderBadge()` in `views/profile.ts`) are
+shown as images on other sites, so they cannot read the tokens and use fixed
+colors instead.
+
 The gem is the brand mark: an octahedron seen from above with four flat facets,
 one token each, lit from the top left. Use `gem(size)`; it renders the same
 shape in the top bar, the footer, notices and the favicon.
@@ -132,8 +136,8 @@ with the exact UTC time in a `title`. No em dashes.
 
 ## Before you open a PR
 
-- Colors come from tokens: grep your diff for `#` hex values outside `style.ts`
-  and `CREW_SHADES`.
+- Colors come from tokens: grep your diff for `#` hex values outside `style.ts`,
+  `CREW_SHADES`, the favicon and the badge.
 - Look at every page you touched at 320, 390, 768 and 1280px wide, in dark and
   light. Nothing scrolls sideways.
 - Tab through it: every control is reachable and shows a focus ring.

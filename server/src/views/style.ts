@@ -61,6 +61,7 @@ h1, h2 { margin: 0; font-weight: 600; text-wrap: balance; }
 .wrap { width: 100%; max-width: 880px; margin: 0 auto; padding-inline: 24px; }
 main.wrap { flex: 1; padding-bottom: 48px; }
 .dim { color: var(--text-3); }
+code { font: inherit; }
 
 /* icons and the gem */
 .i { width: 16px; height: 16px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; vertical-align: middle; }
@@ -281,7 +282,6 @@ tr.you td, tbody tr.you:hover td { background: var(--accent-wash); border-top: 1
 .foot-links { flex-wrap: wrap; gap: 4px 16px; }
 .foot a { color: var(--text-2); text-decoration: none; }
 .foot a:hover { color: var(--text); }
-.foot code { font: inherit; }
 
 /* podium */
 .podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 20px; max-width: 620px; margin: 8px auto 28px; padding: 0; list-style: none; }

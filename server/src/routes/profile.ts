@@ -2,7 +2,7 @@ import type { Env } from '../env.js';
 import { PAGE_CSP, html } from '../http.js';
 import { currentViewer, pageCacheControl, signInEnabled, themeOf, webOrigin } from '../web-session.js';
 import { backFrom } from '../views/layout.js';
-import { renderProfile, renderProfileNotFound } from '../views/profile.js';
+import { badgeValue, renderBadge, renderProfile, renderProfileNotFound } from '../views/profile.js';
 import { crewBoard, crewsOf } from '../crews.js';
 import { dayKey, startOfCalendarMonth, startOfCalendarWeek } from '../window.js';
 
@@ -39,6 +39,11 @@ export function parseProfileHandle(pathname: string): string | null {
   const raw = pathname.slice(2);
   if (!/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/.test(raw)) return null;
   return raw;
+}
+
+export function parseBadgeHandle(pathname: string): string | null {
+  const m = /^(\/@[^/]+)\/badge\.svg$/.exec(pathname);
+  return m ? parseProfileHandle(m[1]) : null;
 }
 
 async function windowStats(
@@ -147,6 +152,27 @@ async function buildProfile(env: Env, handle: string): Promise<ProfileData | nul
     weekDevCount: devCount,
     days,
   };
+}
+
+// An unknown handle still gets a badge, saying so, with a 200: a README should
+// never show a broken image.
+export async function profileBadge(request: Request, env: Env, handle: string): Promise<Response> {
+  const param = new URL(request.url).searchParams.get('window');
+  const window = param === 'week' || param === 'month' ? param : 'all';
+  const since = window === 'week' ? dayKey(startOfCalendarWeek()) : window === 'month' ? dayKey(startOfCalendarMonth()) : '1970-01-01';
+  const user = await env.DB.prepare(`SELECT github_id FROM users WHERE handle = ? COLLATE NOCASE`)
+    .bind(handle).first<{ github_id: number }>();
+  const svg = user
+    ? renderBadge(badgeValue((await windowStats(env, user.github_id, since)).ships, window), true)
+    : renderBadge('not found', false);
+  return new Response(svg, {
+    headers: {
+      'content-type': 'image/svg+xml; charset=utf-8',
+      'cache-control': 'public, max-age=3600',
+      'content-security-policy': "default-src 'none'",
+      'x-content-type-options': 'nosniff',
+    },
+  });
 }
 
 const PAGE_HEADERS = {

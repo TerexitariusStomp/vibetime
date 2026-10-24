@@ -92,9 +92,10 @@ export function avatar(url: string | null, size: number): string {
     : `<span class="av" style="width:${size}px;height:${size}px" aria-hidden="true"></span>`;
 }
 
-// An install line people copy. The prompt is drawn but never copied.
-export function command(lines: string[]): string {
-  const shown = lines.map((l) => `<span class="ps">$ </span>${escapeHtml(l)}`).join('\n');
+// An install line people copy. The prompt is drawn but never copied, and left
+// off for text that is not a shell command.
+export function command(lines: string[], prompt = true): string {
+  const shown = lines.map((l) => `${prompt ? '<span class="ps">$ </span>' : ''}${escapeHtml(l)}`).join('\n');
   return `<div class="cmd"><pre><code>${shown}</code></pre><button class="btn btn-ghost btn-sm btn-icon" type="button" data-copy="${escapeHtml(lines.join('\n'))}" aria-label="copy">${icon('copy', 'copy-idle')}${icon('check', 'copy-done')}</button></div>`;
 }
 

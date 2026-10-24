@@ -289,6 +289,11 @@ const dee = await signIn('dee');
   const profile = await (await req(p)).text();
   check('a profile draws twelve weeks of ships as a skyline with a text summary',
     profile.includes('<h2>last 12 weeks</h2>') && /<svg class="sky" viewBox="[^"]+" role="img" aria-label="[^"]*ship/.test(profile));
+  const badge = await req(`${p}/badge.svg?window=week`);
+  const badgeSvg = await badge.text();
+  const missing = await (await req('/@nobody-here-zz/badge.svg')).text();
+  check('a profile serves a README badge, and an unknown handle gets a "not found" badge, not a broken image',
+    badge.status === 200 && badge.headers.get('content-type').startsWith('image/svg+xml') && /ships? this week<\/text>/.test(badgeSvg) && missing.includes('>not found</text>'));
   const plain = await backOf(p);
   check('a profile opened directly offers a way back to the leaderboard', plain.href === '/leaderboard' && plain.label === 'leaderboard', JSON.stringify(plain));
   const fromMonth = await backOf(p, `${BASE}/leaderboard?window=month`);
