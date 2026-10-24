@@ -116,7 +116,9 @@ export function renderNav(place: NavPlace, ctx: NavContext): string {
     account = `<a class="btn btn-sm" href="/auth/github/start?next=${encodeURIComponent(ctx.path)}">${icon('github')}sign in</a>`;
   }
   const other = ctx.theme === 'light' ? 'dark' : 'light';
-  const theme = `<form method="post" action="/theme"><input type="hidden" name="next" value="${escapeHtml(ctx.path)}"><button class="btn btn-ghost btn-sm btn-icon" type="submit" name="theme" value="${other}" aria-label="switch to ${other}">${icon(other === 'light' ? 'sun' : 'moon')}</button></form>`;
+  // Both icons ship; the stylesheet shows the one for the current theme, so the
+  // site script can switch themes without a page load.
+  const theme = `<form method="post" action="/theme"><input type="hidden" name="next" value="${escapeHtml(ctx.path)}"><button class="btn btn-ghost btn-sm btn-icon" type="submit" name="theme" value="${other}" aria-label="switch to ${other}">${icon('sun', 'i-sun')}${icon('moon', 'i-moon')}</button></form>`;
   return `<nav class="nav" aria-label="vibetime"><div class="wrap nav-in">
     <a class="brand" href="/leaderboard" aria-label="vibetime">${gem(22)}<span>vibetime</span></a>
     <div class="places">${place_('leaderboard', '/leaderboard', 'leaderboard', 'trophy')}${place_('crews', '/crews', 'crews', 'users')}${place_('stats', '/stats', 'stats', 'chart')}</div>

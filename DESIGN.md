@@ -9,7 +9,7 @@ script and one font, all built in `views/style.ts`:
 | What | Served at | Source |
 |---|---|---|
 | stylesheet | `/assets/site.css?v=<hash>` | `SITE_CSS` |
-| script (copy buttons, menu, slug preview) | `/assets/copy.js?v=<hash>` | `COPY_SCRIPT` |
+| script (copy buttons, menu, slug preview, tabs and theme switch without a page load) | `/assets/copy.js?v=<hash>` | `COPY_SCRIPT` |
 | font, Geist Mono variable (OFL) | `/assets/geist-mono.woff2` | `server/assets/` |
 | icons | inline `<svg>` | `ICONS`, `icon()` |
 | the gem | inline `<svg>`, `/favicon.svg` | `gem()`, `views/favicon.ts` |
@@ -68,8 +68,9 @@ breakpoint at 640px.
 **Motion.** `--t-fast` 120ms for hover and press, `--t-slow` 320ms for
 entrances, `--ease-out` for both. Animate `transform` and `opacity` only.
 What moves today: heat cells settle in left to right, the live dot pulses, the
-gem's facets shift on hover, and the selected tab slides between pages with
-`@view-transition`. `prefers-reduced-motion` turns all of it off.
+gem's facets shift on hover, and moving between pages cross-fades with
+`@view-transition`. Window tabs swap in place without it, so a click answers at
+once. `prefers-reduced-motion` turns all of it off.
 
 ## Icons and the gem
 

@@ -77,6 +77,11 @@ main.wrap { flex: 1; padding-bottom: 48px; }
 .places a.on { color: var(--text); background: var(--surface-2); }
 .account { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 .account form { margin: 0; }
+[data-theme="dark"] .i-moon, [data-theme="light"] .i-sun { display: none; }
+/* While a tab's content loads, everything under the tabs dims, after a beat so
+   a page that is already loaded never flickers. */
+main > * { transition: opacity var(--t-fast); }
+main[aria-busy="true"] > :not(.head):not(.tabs) { opacity: .5; transition-delay: 100ms; }
 .menu { position: relative; }
 .menu > summary { list-style: none; display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 8px 0 4px; border-radius: var(--r-full); cursor: pointer; color: var(--text-2); font-size: 13px; }
 .menu > summary::-webkit-details-marker { display: none; }
@@ -323,6 +328,7 @@ tr.you td, tbody tr.you:hover td { background: var(--accent-wash); border-top: 1
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
   @view-transition { navigation: none; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
 }
 `;
 
@@ -348,6 +354,59 @@ document.addEventListener('click', function (e) {
 document.addEventListener('keydown', function (e) {
   var menu = document.querySelector('details.menu[open]');
   if (e.key === 'Escape' && menu) { menu.removeAttribute('open'); menu.querySelector('summary').focus(); }
+});
+// Window tabs and the theme switch work without a page load. Without this
+// script they are a plain link and a plain form, and still work.
+// A tab's page starts loading when the pointer or focus reaches it, and stays
+// for a minute, so most switches have nothing left to wait for.
+var pages = {};
+function load(url) {
+  var hit = pages[url];
+  if (hit && Date.now() - hit.at < 60000) return hit.page;
+  var page = fetch(url).then(function (r) {
+    if (!r.ok) throw new Error(r.status);
+    return r.text();
+  });
+  pages[url] = { at: Date.now(), page: page };
+  page.catch(function () { delete pages[url]; });
+  return page;
+}
+function tabAt(e) { return e.target.closest && e.target.closest('.tabs a'); }
+['pointerover', 'focusin'].forEach(function (type) {
+  document.addEventListener(type, function (e) { var a = tabAt(e); if (a && a.href !== location.href) load(a.href); });
+});
+var wanted = null;
+function swap(url, push, tab) {
+  var main = document.querySelector('main');
+  wanted = url;
+  // The tab moves the moment it is pressed; the content follows when it lands.
+  // No view transition here: its snapshot holds the click up for a frame or more.
+  if (tab) tab.parentNode.querySelectorAll('.tab').forEach(function (t) { t.classList.toggle('tab-active', t === tab); });
+  main.setAttribute('aria-busy', 'true');
+  if (push) history.pushState(null, '', url);
+  load(url).then(function (html) {
+    if (url !== wanted) return;
+    var doc = new DOMParser().parseFromString(html, 'text/html');
+    ['.nav', 'main'].forEach(function (sel) { var el = doc.querySelector(sel); if (el) document.querySelector(sel).replaceWith(el); });
+    document.title = doc.title;
+  }).catch(function () { location.href = url; });
+}
+document.addEventListener('click', function (e) {
+  var a = tabAt(e);
+  if (!a || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  e.preventDefault();
+  if (a.href !== location.href) swap(a.href, true, a);
+});
+window.addEventListener('popstate', function () { swap(location.href, false); });
+document.addEventListener('submit', function (e) {
+  if (e.target.getAttribute('action') !== '/theme') return;
+  e.preventDefault();
+  var button = e.target.querySelector('button[name="theme"]');
+  var next = button.value, other = next === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  button.value = other;
+  button.setAttribute('aria-label', 'switch to ' + other);
+  fetch('/theme', { method: 'POST', body: new URLSearchParams({ theme: next, next: '/' }), redirect: 'manual' });
 });
 `;
 export const COPY_SCRIPT_URL = `/assets/copy.js?v=${fingerprint(COPY_SCRIPT)}`;
