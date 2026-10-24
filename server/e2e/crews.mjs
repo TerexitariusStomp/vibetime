@@ -200,7 +200,7 @@ const dee = await signIn('dee');
   for (const n of ['one', 'two', 'three', 'four', 'five']) made.push(loc(await dee.post('/crews', { name: `dee ${n} ${run}` })));
   const sixth = await dee.post('/crews', { name: `dee six ${run}` });
   const sixthPage = await sixth.text();
-  check('a sixth crew is refused, with a link to each crew you could leave', sixth.status === 200 && sixthPage.includes('in 5 crews, the most anyone can be in') && made.every((l) => l?.includes('?m=created'))
+  check('a sixth crew is refused, with a link to each crew you could leave', sixth.status === 200 && sixthPage.includes('5 is the most anyone can be in') && made.every((l) => l?.includes('?m=created'))
     && made.every((l) => sixthPage.includes(`href="${l.split('?')[0]}"`)));
   await bo.post(`/crew/${slug}/settings`, { action: 'reset' });
   const invite = await (await dee.get(`/join/${inviteOf(slug)}`)).text();
@@ -211,7 +211,7 @@ const dee = await signIn('dee');
   const openJoin = await dee.post(`/crew/${slug}/join`);
   const openPage = await dee.get(loc(openJoin)).then((r) => r.text());
   check('joining an open crew at the limit says so on the crew page, with a link to each crew to leave',
-    loc(openJoin) === `/crew/${slug}?m=limit` && openPage.includes('the most anyone can be in') && made.every((l) => openPage.includes(`href="${l.split('?')[0]}"`)) && liveMembers(slug) === 2);
+    loc(openJoin) === `/crew/${slug}?m=limit` && openPage.includes('5 is the most anyone can be in') && made.every((l) => openPage.includes(`href="${l.split('?')[0]}"`)) && liveMembers(slug) === 2);
 }
 {
   const eve = await signIn('eve');

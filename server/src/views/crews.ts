@@ -19,7 +19,7 @@ export const MESSAGES: Record<string, { text: string; good: boolean }> = {
   handed: { text: 'you handed the crew over.', good: true },
   already: { text: 'you are already in this crew.', good: true },
   full: { text: `this crew is full (${MAX_MEMBERS} members).`, good: false },
-  limit: { text: `you are in ${MAX_CREWS_PER_USER} crews, the most anyone can be in.`, good: false },
+  limit: { text: `you are in ${MAX_CREWS_PER_USER} crews already.`, good: false },
   name: { text: 'pick a name between 2 and 32 characters.', good: false },
   closedcrew: { text: 'this crew is invite only. ask the owner for the link.', good: false },
 };
@@ -55,8 +55,8 @@ function note(message: string | null): string {
 // crew's page, so the limit always comes with a way to each of them.
 function yourCrews(mine: Membership[]): string {
   if (mine.length === 0) return '';
-  return `<p class="fine">to join another, leave one of yours from its page:</p>
-    <div class="chips">${mine.map((c) => `<a class="chip" href="/crew/${escapeHtml(c.slug)}">${monogram(c.name, c.slug)}${escapeHtml(c.name)}</a>`).join('')}</div>`;
+  return `<div class="way-out"><p class="fine">${MAX_CREWS_PER_USER} is the most anyone can be in. to join another, leave one of yours from its page:</p>
+    <div class="chips">${mine.map((c) => `<a class="chip" href="/crew/${escapeHtml(c.slug)}">${monogram(c.name, c.slug)}${escapeHtml(c.name)}</a>`).join('')}</div></div>`;
 }
 
 function tabs(base: string, window: CrewWindow): string {
@@ -250,7 +250,7 @@ export function renderInvite(
       ? `<form method="post" action="/join/${escapeHtml(code)}" style="width:100%"><button class="btn btn-primary btn-block" type="submit">join ${escapeHtml(crew.name)}</button></form>
          <p class="fine">signed in as @${escapeHtml(nav.viewer?.handle ?? '')} · you are in ${mine.length} of ${MAX_CREWS_PER_USER} crews</p>`
       : state === 'limit'
-        ? `<span class="btn btn-quiet btn-block">you are in ${MAX_CREWS_PER_USER} crews, the most anyone can be in</span>${yourCrews(mine)}`
+        ? `<span class="btn btn-quiet btn-block">you are in ${MAX_CREWS_PER_USER} crews</span>${yourCrews(mine)}`
         : `<span class="btn btn-quiet btn-block">this crew is full</span><p class="fine">it has ${MAX_MEMBERS} members. ask @${escapeHtml(crew.ownerHandle)} about it.</p>`;
   return page(`join ${crew.name} · vibetime`, 'crews', nav, `
   <div class="card center">
@@ -298,7 +298,7 @@ export function renderCreate(nav: NavContext, mine: Membership[], message: strin
       <p class="hint">your crew lives at <b id="slug-preview" data-host="${escapeHtml(host)}">${escapeHtml(host)}/crew/${escapeHtml(name ? slugFor(name) : '…')}</b></p>
     </div>
     ${atLimit
-      ? `<span class="btn btn-quiet btn-block">you are in ${MAX_CREWS_PER_USER} crews, the most anyone can be in</span>${yourCrews(mine)}`
+      ? `<span class="btn btn-quiet btn-block">you are in ${MAX_CREWS_PER_USER} crews</span>${yourCrews(mine)}`
       : `<button class="btn btn-primary btn-block" type="submit">start crew</button>`}
     <p class="fine">you are in ${mine.length} of ${MAX_CREWS_PER_USER} crews. crews are public: the name, members and their ship counts show on vibetime.club. new crews are invite only; you can open yours later.</p>
   </form>`);
