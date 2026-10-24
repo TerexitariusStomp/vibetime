@@ -1,5 +1,5 @@
 import type { Env } from '../env.js';
-import { html, json } from '../http.js';
+import { PAGE_CSP, html, json } from '../http.js';
 import { renderStats } from '../views/stats.js';
 import { currentViewer, pageCacheControl, signInEnabled, webOrigin } from '../web-session.js';
 
@@ -53,7 +53,7 @@ export async function statsHtml(request: Request, env: Env): Promise<Response> {
   return html(renderStats(data, new Date(), nav), {
     headers: {
       ...pageCacheControl(viewer),
-      'content-security-policy': "default-src 'self'; img-src https://avatars.githubusercontent.com; style-src 'unsafe-inline'; base-uri 'self'; form-action 'self'",
+      'content-security-policy': PAGE_CSP,
       'referrer-policy': 'strict-origin-when-cross-origin',
       'x-content-type-options': 'nosniff',
     },

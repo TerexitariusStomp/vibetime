@@ -264,7 +264,7 @@ const dee = await signIn('dee');
 {
   const backOf = async (path, referer) => {
     const res = await req(path, referer ? { headers: { referer } } : {});
-    const m = /<a class="back" href="([^"]*)">← ([^<]*)<\/a>/.exec(await res.text());
+    const m = /<a class="back" href="([^"]*)"><svg[\s\S]*?<\/svg>([^<]*)<\/a>/.exec(await res.text());
     return { href: m?.[1].replace(/&amp;/g, '&'), label: m?.[2], vary: res.headers.get('vary') };
   };
   const p = `/@${ada.handle}`;

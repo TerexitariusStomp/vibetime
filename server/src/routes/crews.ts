@@ -1,18 +1,16 @@
 import type { Env } from '../env.js';
-import { html } from '../http.js';
+import { PAGE_CSP, html } from '../http.js';
 import {
   MAX_CREWS_PER_USER, MAX_MEMBERS, crewBoard, crewByInvite, crewBySlug, crewMembers, createCrew, crewsOf, deleteCrew,
   handOver, hasUsedCli, isMember, joinCrew, leaveCrew, memberCountsOf, parseCrewWindow, renameCrew, resetInvite, setOpen, windowStart,
   type Crew,
 } from '../crews.js';
 import {
-  COPY_SCRIPT, MESSAGES, renderConfirm, renderCreate, renderCrew, renderCrewBoard, renderCrewMissing, renderInvite, renderInviteGone,
+  MESSAGES, renderConfirm, renderCreate, renderCrew, renderCrewBoard, renderCrewMissing, renderInvite, renderInviteGone,
 } from '../views/crews.js';
 import { backFrom, renderNotice, type NavContext } from '../views/layout.js';
 import { currentViewer, pageCacheControl, signInEnabled, webOrigin, type Viewer } from '../web-session.js';
 import { sameOrigin } from './web-auth.js';
-
-const CSP = "default-src 'self'; img-src https://avatars.githubusercontent.com; style-src 'unsafe-inline'; base-uri 'self'; form-action 'self'";
 
 function page(body: string, viewer: Viewer | null, status = 200, byReferer = false): Response {
   const cache = pageCacheControl(viewer);
@@ -21,7 +19,7 @@ function page(body: string, viewer: Viewer | null, status = 200, byReferer = fal
     headers: {
       ...cache,
       ...(byReferer ? { vary: 'cookie, referer' } : {}),
-      'content-security-policy': CSP,
+      'content-security-policy': PAGE_CSP,
       'referrer-policy': 'strict-origin-when-cross-origin',
       'x-content-type-options': 'nosniff',
     },
@@ -62,12 +60,6 @@ function notFound(nav: NavContext, viewer: Viewer | null): Response {
 
 function forbidden(): Response {
   return html(renderNotice('not done', 'that request did not come from vibetime.club.'), { status: 403, headers: { 'cache-control': 'no-store' } });
-}
-
-export function copyScript(): Response {
-  return new Response(COPY_SCRIPT, {
-    headers: { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'public, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' },
-  });
 }
 
 export async function crewsHtml(request: Request, env: Env): Promise<Response> {

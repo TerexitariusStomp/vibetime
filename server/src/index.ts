@@ -7,11 +7,12 @@ import { parseProfileHandle, profileHtml } from './routes/profile.js';
 import { clientConfig } from './routes/config.js';
 import { githubCallback, githubStart, signOut } from './routes/web-auth.js';
 import {
-  copyScript, createCrewPost, crewConfirmHtml, crewHtml, crewJoinPost, crewLeavePost, crewSettingsPost, crewsHtml,
+  createCrewPost, crewConfirmHtml, crewHtml, crewJoinPost, crewLeavePost, crewSettingsPost, crewsHtml,
   invitePost, inviteHtml, lowercaseCrewRedirect, newCrewHtml, parseCrewPath, parseInvitePath,
 } from './routes/crews.js';
 import { faviconResponse } from './views/favicon.js';
 import { ogImageResponse } from './views/og.js';
+import { copyScriptResponse, fontResponse, stylesheetResponse } from './views/style.js';
 import { error } from './http.js';
 import { CLI_RECOMMENDED } from './release.js';
 
@@ -80,7 +81,11 @@ export default {
         case 'POST /crews':
           return await createCrewPost(request, env);
         case 'GET /assets/copy.js':
-          return copyScript();
+          return copyScriptResponse();
+        case 'GET /assets/site.css':
+          return stylesheetResponse();
+        case 'GET /assets/geist-mono.woff2':
+          return fontResponse();
         case 'GET /config':
           return withCors(clientConfig());
         case 'POST /sessions': {

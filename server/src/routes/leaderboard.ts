@@ -1,5 +1,5 @@
 import type { Env } from '../env.js';
-import { html, json } from '../http.js';
+import { PAGE_CSP, html, json } from '../http.js';
 import { renderLeaderboard } from '../views/leaderboard.js';
 import { currentViewer, pageCacheControl, signInEnabled, webOrigin } from '../web-session.js';
 import { dayKey, startOfCalendarMonth, startOfCalendarWeek } from '../window.js';
@@ -156,7 +156,7 @@ export async function leaderboardHtml(request: Request, env: Env): Promise<Respo
   return html(renderLeaderboard(data, window, new Date(), windowStart, nav), {
     headers: {
       ...pageCacheControl(viewer),
-      'content-security-policy': "default-src 'self'; img-src https://avatars.githubusercontent.com; style-src 'unsafe-inline'; base-uri 'self'; form-action 'self'",
+      'content-security-policy': PAGE_CSP,
       'referrer-policy': 'strict-origin-when-cross-origin',
       'x-content-type-options': 'nosniff',
     },
