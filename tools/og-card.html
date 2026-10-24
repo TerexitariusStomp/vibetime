@@ -2,29 +2,39 @@
 <!--
   The link-preview image for every vibetime.club page. Regenerate with:
   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --hide-scrollbars \
-    --window-size=1200,630 --screenshot=server/assets/og.png tools/og-card.html
+    --allow-file-access-from-files --window-size=1200,630 \
+    --screenshot=server/assets/og.png tools/og-card.html
+  The flag lets the page load the site's own font from server/assets.
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <style>
+  @font-face { font-family: "Geist Mono"; src: url(../server/assets/geist-mono.woff2) format("woff2"); font-weight: 100 900; }
   * { box-sizing: border-box; margin: 0; }
   html, body { width: 1200px; height: 630px; overflow: hidden; }
-  body { background: #0a0a0a; color: #e5e5e5; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; padding: 72px 88px; display: flex; flex-direction: column; }
-  .brand { color: #a78bfa; font-size: 34px; font-weight: 600; letter-spacing: 0.5px; display: flex; align-items: center; gap: 16px; }
-  .brand svg { width: 30px; height: 30px; }
-  h1 { font-size: 66px; font-weight: 500; line-height: 1.18; letter-spacing: -1px; margin-top: auto; max-width: 960px; }
-  .places { color: #777; font-size: 28px; margin-top: 28px; }
-  .places b { color: #a78bfa; font-weight: 400; }
-  .foot { margin-top: auto; display: flex; justify-content: space-between; align-items: center; padding-top: 28px; border-top: 1px solid #1a1a1a; font-size: 26px; }
-  .url { color: #e5e5e5; }
-  .cmd { color: #a78bfa; background: #15101f; padding: 8px 18px; border-radius: 10px; }
+  body { background: #0B0A0F; color: #EEECF4; font-family: "Geist Mono", ui-monospace, monospace; padding: 72px 88px 64px; display: flex; flex-direction: column; -webkit-font-smoothing: antialiased; }
+  .brand { display: flex; align-items: center; gap: 18px; font-size: 34px; font-weight: 600; letter-spacing: -0.02em; }
+  h1 { margin-top: auto; max-width: 900px; font-size: 64px; font-weight: 600; line-height: 1.15; letter-spacing: -0.04em; }
+  .places { margin-top: 28px; color: #ABA6BA; font-size: 28px; }
+  .places b { color: #A78BFA; font-weight: 400; }
+  .heat { position: absolute; top: 84px; right: 88px; display: grid; grid-template-columns: repeat(7, 22px); gap: 6px; }
+  .heat i { width: 22px; height: 22px; border-radius: 4px; background: #1D1B26; }
+  .heat .h1 { background: #3A2C66; } .heat .h2 { background: #5B45B3; } .heat .h3 { background: #8B6CF0; } .heat .h4 { background: #C4B5FD; }
+  .foot { margin-top: auto; display: flex; justify-content: space-between; align-items: center; padding-top: 28px; border-top: 1px solid #24212E; font-size: 26px; }
+  .cmd { color: #A78BFA; background: #1A1430; border: 1px solid #3B2D63; padding: 8px 18px; border-radius: 10px; }
+  .cmd span { color: #8C87A0; }
 </style>
 </head>
 <body>
-  <div class="brand"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4 60 32 32 60 4 32Z" fill="#7c3aed"/></svg>vibetime</div>
+  <div class="brand"><svg width="40" height="40" viewBox="0 0 64 64" aria-hidden="true"><path fill="#C4B5FD" d="M32 4 4 30 28 34Z"/><path fill="#A78BFA" d="M32 4 28 34 60 30Z"/><path fill="#7C3AED" d="M4 30 32 60 28 34Z"/><path fill="#5B21B6" d="M28 34 32 60 60 30Z"/></svg>vibetime</div>
+  <div class="heat" aria-hidden="true">
+    <i></i><i class="h1"></i><i></i><i class="h2"></i><i class="h1"></i><i class="h3"></i><i class="h2"></i>
+    <i class="h1"></i><i class="h2"></i><i class="h3"></i><i></i><i class="h3"></i><i class="h4"></i><i class="h3"></i>
+    <i class="h2"></i><i class="h3"></i><i class="h4"></i><i class="h2"></i><i class="h4"></i><i class="h4"></i><i class="h3"></i>
+  </div>
   <h1>track what you actually ship with AI.</h1>
   <p class="places">the weekly leaderboard <b>·</b> crews <b>·</b> stats</p>
-  <div class="foot"><span class="url">vibetime.club</span><span class="cmd">npm i -g vibetime-cli</span></div>
+  <div class="foot"><span>vibetime.club</span><span class="cmd"><span>$ </span>npm i -g vibetime-cli</span></div>
 </body>
 </html>
