@@ -64,18 +64,18 @@ async function buildData(env: Env, window: Window): Promise<LeaderboardData> {
     : Date.now() - WINDOWS[window];
   const sinceDay = dayKey(new Date(sinceMs));
 
-  const totalsRes = await env.DB.prepare(
+  // The totals and the ranking do not depend on each other, so they share one
+  // round trip to the database instead of taking two.
+  const [totalsRes, topRes] = await Promise.all([env.DB.prepare(
     `SELECT COUNT(DISTINCT user_github_id) AS dev_count, SUM(ships) AS session_count
      FROM ship_events
      WHERE day >= ?`,
-  ).bind(sinceDay).first<{ dev_count: number; session_count: number }>();
-  const devCount = totalsRes?.dev_count ?? 0;
-  const sessionCount = totalsRes?.session_count ?? 0;
+  ).bind(sinceDay).first<{ dev_count: number; session_count: number }>(),
 
   // Rank by ships. Consistency is not ranked because the heatmap already shows
   // it: ranking by days duplicated those squares and demoted the number the
   // product is actually about.
-  const topRes = await env.DB.prepare(
+  env.DB.prepare(
     `SELECT u.github_id, u.handle, u.avatar_url,
             SUM(e.ships) AS shipped_count,
             COUNT(DISTINCT e.day) AS day_count,
@@ -88,7 +88,9 @@ async function buildData(env: Env, window: Window): Promise<LeaderboardData> {
      GROUP BY u.github_id
      ORDER BY shipped_count DESC, first_at ASC
      LIMIT 100`,
-  ).bind(sinceDay).all<LeaderboardRow>();
+  ).bind(sinceDay).all<LeaderboardRow>()]);
+  const devCount = totalsRes?.dev_count ?? 0;
+  const sessionCount = totalsRes?.session_count ?? 0;
 
   const rows = topRes.results ?? [];
   if (rows.length === 0) return { entries: [], devCount, sessionCount };
