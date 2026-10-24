@@ -256,6 +256,7 @@ const dee = await signIn('dee');
     home.status === 200 && homePage.includes('track what you vibe.') && homePage.includes('npm i -g vibetime-cli') && homePage.includes('a <b>ship</b> is') && homePage.includes('href="/leaderboard"'));
   const again = await req('/', { headers: { cookie: `vt_seen=${Date.now() - 31 * 60 * 1000}` } });
   const signedIn = await ada.get('/');
+  check('the logo in the bar goes home', (await (await anon.get('/leaderboard')).text()).includes('<a class="brand" href="/"'));
   check('/ keeps showing the home page to signed-out visitors and sends signed-in people to the leaderboard',
     again.status === 200 && signedIn.status === 302 && loc(signedIn) === '/leaderboard', `${again.status} ${signedIn.status}`);
   check('the home page leaves out crews with no ships this week', !/<span class="n">0<\/span>/.test(homePage));
