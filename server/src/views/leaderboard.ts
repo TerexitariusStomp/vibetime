@@ -17,7 +17,7 @@ export function relativeTime(iso: string, now: Date): string {
 }
 
 // Ships a day, in five bands: 0, 1-2, 3-5, 6-11, 12+.
-function heatLevel(n: number): number {
+export function heatLevel(n: number): number {
   return n === 0 ? 0 : n <= 2 ? 1 : n <= 5 ? 2 : n <= 11 ? 3 : 4;
 }
 
@@ -30,10 +30,10 @@ export function heatmapCells(recent: HeatmapDay[]): string {
 
 // The squares with a text equivalent. A second copy on the same row (the phone
 // layout shows them under the name) is hidden from screen readers.
-export function heatmap(recent: HeatmapDay[], copy = false, large = false): string {
+export function heatmap(recent: HeatmapDay[], copy = false): string {
   const days = recent.filter((d) => d.n > 0).length;
   const label = copy ? 'aria-hidden="true"' : `role="img" aria-label="shipped on ${days} of the last ${recent.length} days"`;
-  return `<span class="heatmap${large ? ' heatmap-lg' : ''}" ${label}>${heatmapCells(recent)}</span>`;
+  return `<span class="heatmap" ${label}>${heatmapCells(recent)}</span>`;
 }
 
 export const LEGEND = `<span class="legend" aria-hidden="true">less <span class="heatmap">${[0, 1, 2, 3, 4].map((l) => `<span class="cell cell-${l}"></span>`).join('')}</span> more</span>`;

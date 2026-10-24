@@ -6,7 +6,8 @@ import { renderProfile, renderProfileNotFound } from '../views/profile.js';
 import { crewBoard, crewsOf } from '../crews.js';
 import { dayKey, startOfCalendarMonth, startOfCalendarWeek } from '../window.js';
 
-const HEATMAP_DAYS = 7;
+// The skyline: this week and the eleven before it, Monday first.
+const SKYLINE_WEEKS = 12;
 
 export interface ProfileWindowStats {
   ships: number;
@@ -28,7 +29,8 @@ export interface ProfileData {
   lastShippedAt: string | null;
   weekRank: number | null;
   weekDevCount: number;
-  recentDays: ProfileHeatmapDay[];
+  // Ships per day from the Monday eleven weeks back through today.
+  days: ProfileHeatmapDay[];
 }
 
 // GitHub login rules: 1–39 chars, alphanumeric or hyphen, no leading/trailing hyphen.
@@ -116,22 +118,21 @@ async function buildProfile(env: Env, handle: string): Promise<ProfileData | nul
 
   const { rank, devCount } = await weekRank(env, user.github_id, weekStart, week.ships);
 
-  const heatmapSinceDay = dayKey(new Date(Date.now() - HEATMAP_DAYS * 24 * 60 * 60 * 1000));
+  const since = startOfCalendarWeek();
+  since.setUTCDate(since.getUTCDate() - 7 * (SKYLINE_WEEKS - 1));
   const dailyRes = await env.DB.prepare(
     `SELECT day, SUM(ships) AS n
      FROM ship_events
      WHERE user_github_id = ? AND day >= ?
      GROUP BY day`,
-  ).bind(user.github_id, heatmapSinceDay).all<{ day: string; n: number }>();
+  ).bind(user.github_id, dayKey(since)).all<{ day: string; n: number }>();
 
   const byDay = new Map((dailyRes.results ?? []).map((d) => [d.day, d.n]));
-  const recentDays: ProfileHeatmapDay[] = [];
-  const now = new Date();
-  for (let i = HEATMAP_DAYS - 1; i >= 0; i--) {
-    const d = new Date(now);
-    d.setUTCDate(d.getUTCDate() - i);
+  const days: ProfileHeatmapDay[] = [];
+  const today = dayKey(new Date());
+  for (const d = since; dayKey(d) <= today; d.setUTCDate(d.getUTCDate() + 1)) {
     const key = dayKey(d);
-    recentDays.push({ day: key, n: byDay.get(key) ?? 0 });
+    days.push({ day: key, n: byDay.get(key) ?? 0 });
   }
 
   return {
@@ -144,7 +145,7 @@ async function buildProfile(env: Env, handle: string): Promise<ProfileData | nul
     lastShippedAt: last?.last_shipped_at ?? null,
     weekRank: rank,
     weekDevCount: devCount,
-    recentDays,
+    days,
   };
 }
 

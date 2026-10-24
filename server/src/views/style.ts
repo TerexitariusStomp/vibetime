@@ -28,6 +28,7 @@ export const SITE_CSS = `
   --heat-0: #1D1B26; --heat-1: #3A2C66; --heat-2: #5B45B3; --heat-3: #8B6CF0; --heat-4: #C4B5FD;
   --seg-track: #13121A; --seg-on: #262330;
   --pod-top: #2E2A3A; --pod-front: #1F1C29; --pod-side: #16141E;
+  --sky-shade: #000000;
   --gem-1: #C4B5FD; --gem-2: #A78BFA; --gem-3: #7C3AED; --gem-4: #5B21B6;
   --on-crew: #0B0A0F;
   --font: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
@@ -47,6 +48,7 @@ export const SITE_CSS = `
   --heat-0: #ECE9F2; --heat-1: #DCD2FB; --heat-2: #B8A3F6; --heat-3: #8B6CF0; --heat-4: #6D28D9;
   --seg-track: #F4F2F8; --seg-on: #FFFFFF;
   --pod-top: #F1EEF6; --pod-front: #E4E0EC; --pod-side: #D4CEE0;
+  --sky-shade: #2E1065;
   color-scheme: light;
 }
 @font-face { font-family: "Geist Mono"; src: url(${FONT_URL}) format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
@@ -166,7 +168,6 @@ form.inline { display: inline; margin: 0; }
 .cell:nth-child(5) { animation-delay: 120ms; } .cell:nth-child(6) { animation-delay: 150ms; } .cell:nth-child(7) { animation-delay: 180ms; }
 @keyframes cell-in { from { transform: scale(.4); opacity: .2; } }
 .cell-1 { background: var(--heat-1); } .cell-2 { background: var(--heat-2); } .cell-3 { background: var(--heat-3); } .cell-4 { background: var(--heat-4); }
-.heatmap-lg { gap: 4px; } .heatmap-lg .cell { width: 14px; height: 14px; border-radius: 3px; }
 .legend { display: inline-flex; align-items: center; gap: 6px; }
 .legend .cell { animation: none; }
 
@@ -303,6 +304,16 @@ tr.you td, tbody tr.you:hover td { background: var(--accent-wash); border-top: 1
 @keyframes rise { from { transform: scaleY(.15); } }
 /* Your row stays in view at the bottom until you scroll to where it is. */
 .board tr.you td { position: sticky; bottom: 0; }
+
+/* skyline */
+.sky { display: block; width: 100%; max-width: 620px; height: auto; margin: 0 auto; }
+.sky .l0 { --c: var(--heat-0); } .sky .l1 { --c: var(--heat-1); } .sky .l2 { --c: var(--heat-2); } .sky .l3 { --c: var(--heat-3); } .sky .l4 { --c: var(--heat-4); }
+.sky .t { fill: var(--c); }
+.sky .a { fill: color-mix(in oklab, var(--c), var(--sky-shade) 25%); }
+.sky .b { fill: color-mix(in oklab, var(--c), var(--sky-shade) 42%); }
+.sky g { transform-box: fill-box; transform-origin: 50% 100%; animation: rise 520ms steps(6, end) both; animation-delay: calc(var(--d, 0) * 32ms); }
+.sky-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; color: var(--text-3); font-size: 12px; }
+.sky-foot b { color: var(--text); font-weight: 600; }
 
 /* home */
 .hero { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 48px; align-items: center; padding: 64px 0 48px; }

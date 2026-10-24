@@ -286,6 +286,9 @@ const dee = await signIn('dee');
     return { href: m?.[1].replace(/&amp;/g, '&'), label: m?.[2], vary: res.headers.get('vary') };
   };
   const p = `/@${ada.handle}`;
+  const profile = await (await req(p)).text();
+  check('a profile draws twelve weeks of ships as a skyline with a text summary',
+    profile.includes('<h2>last 12 weeks</h2>') && /<svg class="sky" viewBox="[^"]+" role="img" aria-label="[^"]*ship/.test(profile));
   const plain = await backOf(p);
   check('a profile opened directly offers a way back to the leaderboard', plain.href === '/leaderboard' && plain.label === 'leaderboard', JSON.stringify(plain));
   const fromMonth = await backOf(p, `${BASE}/leaderboard?window=month`);
