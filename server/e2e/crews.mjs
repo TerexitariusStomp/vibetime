@@ -197,19 +197,26 @@ const code = inviteOf(slug);
 const dee = await signIn('dee');
 {
   const made = [];
-  for (const n of ['one', 'two', 'three']) made.push(loc(await dee.post('/crews', { name: `dee ${n} ${run}` })));
-  const fourth = await dee.post('/crews', { name: `dee four ${run}` });
-  check('a fourth crew is refused', fourth.status === 200 && (await fourth.text()).includes('in 3 crews already') && made.every((l) => l?.includes('?m=created')));
+  for (const n of ['one', 'two', 'three', 'four', 'five']) made.push(loc(await dee.post('/crews', { name: `dee ${n} ${run}` })));
+  const sixth = await dee.post('/crews', { name: `dee six ${run}` });
+  const sixthPage = await sixth.text();
+  check('a sixth crew is refused, with a link to each crew you could leave', sixth.status === 200 && sixthPage.includes('in 5 crews, the most anyone can be in') && made.every((l) => l?.includes('?m=created'))
+    && made.every((l) => sixthPage.includes(`href="${l.split('?')[0]}"`)));
   await bo.post(`/crew/${slug}/settings`, { action: 'reset' });
   const invite = await (await dee.get(`/join/${inviteOf(slug)}`)).text();
-  check('at three crews the invite says so instead of offering a join', invite.includes('you are in 3 crews'));
+  check('at five crews the invite says so instead of offering a join, and links each crew to leave', invite.includes('you are in 5 crews') && !invite.includes(`action="/join/`) && made.every((l) => invite.includes(`href="${l.split('?')[0]}"`)));
   const forced = await dee.post(`/join/${inviteOf(slug)}`);
   check('and posting the join anyway changes nothing', liveMembers(slug) === 2 && loc(forced) === `/join/${inviteOf(slug)}`);
+  await bo.post(`/crew/${slug}/settings`, { action: 'open' });
+  const openJoin = await dee.post(`/crew/${slug}/join`);
+  const openPage = await dee.get(loc(openJoin)).then((r) => r.text());
+  check('joining an open crew at the limit says so on the crew page, with a link to each crew to leave',
+    loc(openJoin) === `/crew/${slug}?m=limit` && openPage.includes('the most anyone can be in') && made.every((l) => openPage.includes(`href="${l.split('?')[0]}"`)) && liveMembers(slug) === 2);
 }
 {
   const eve = await signIn('eve');
   const slugs = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 8; i++) {
     const owner = await signIn(`own${i}`);
     const l = loc(await owner.post('/crews', { name: `race ${i} ${run}` }));
     const s = l.split('?')[0].slice('/crew/'.length);
@@ -219,7 +226,7 @@ const dee = await signIn('dee');
   // Fired together so the limit is decided by the insert, not by request order.
   await Promise.all(slugs.map((s) => eve.post(`/crew/${s}/join`)));
   const n = d1(`SELECT COUNT(*) n FROM crew_members WHERE user_github_id = ${eve.id} AND left_at IS NULL`)[0].n;
-  check('five joins at once still stop at three crews', n === 3, `in ${n} crews`);
+  check('eight joins at once still stop at five crews', n === 5, `in ${n} crews`);
 }
 {
   const owner = await signIn('fullowner');
@@ -329,7 +336,7 @@ const dee = await signIn('dee');
   const code2 = inviteOf(s2);
   const invFresh = await (await fresh.get(`/join/${code2}`)).text();
   const invVet = await (await veteran.get(`/join/${code2}`)).text();
-  check('signed in, the invite says how many of your 3 crews you are in', invFresh.includes('you are in 0 of 3 crews'), invFresh.match(/signed in as[^<]*/)?.[0]);
+  check('signed in, the invite says how many of your 5 crews you are in', invFresh.includes('you are in 0 of 5 crews'), invFresh.match(/signed in as[^<]*/)?.[0]);
   check('signed in without ever running the CLI, the invite still shows the install lines',
     invFresh.includes('npm i -g vibetime-cli@latest') && !invVet.includes('npm i -g vibetime-cli@latest'));
   await fresh.post(`/join/${code2}`);

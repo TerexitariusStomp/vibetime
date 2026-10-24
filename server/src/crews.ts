@@ -2,7 +2,7 @@ import type { Env } from './env.js';
 import { b64url } from './jwt.js';
 import { dayKey, startOfCalendarMonth, startOfCalendarWeek } from './window.js';
 
-export const MAX_CREWS_PER_USER = 3;
+export const MAX_CREWS_PER_USER = 5;
 export const MAX_MEMBERS = 50;
 export const MIN_MEMBERS_TO_RANK = 2;
 export const NAME_MIN = 2;
