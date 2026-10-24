@@ -261,8 +261,10 @@ const dee = await signIn('dee');
     check('the leaderboard says what a ship is above the fold and links to the full rule', board.includes('a ship is a commit with more than 50 lines') && board.includes('href="#ship"') && board.includes('id="ship"'));
   }
   check('the logo in the bar goes home', (await (await anon.get('/leaderboard')).text()).includes('<a class="brand" href="/"'));
-  check('/ keeps showing the home page to signed-out visitors and sends signed-in people to the leaderboard',
-    again.status === 200 && signedIn.status === 302 && loc(signedIn) === '/leaderboard', `${again.status} ${signedIn.status}`);
+  const signedInPage = signedIn.status === 200 ? await signedIn.text() : '';
+  check('/ shows the home page to everyone, signed in or not, with the signed-in bar for people who are',
+    again.status === 200 && signedIn.status === 200 && signedInPage.includes('track what you vibe.') && signedInPage.includes(`signed in as <b>@${ada.handle}</b>`),
+    `${again.status} ${signedIn.status}`);
   check('the home page leaves out crews with no ships this week', !/<span class="n">0<\/span>/.test(homePage));
   const sid = randomUUID();
   d1(`INSERT INTO sessions (id, user_github_id, tool, project_hash, started_at, ended_at, duration_seconds, commits, lines_added, lines_removed, files_touched, momentum, submitted_at)
