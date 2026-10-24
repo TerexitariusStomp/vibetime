@@ -9,8 +9,12 @@ export function crewShade(slug: string): string {
   return CREW_SHADES[n % CREW_SHADES.length];
 }
 
+// By grapheme: slicing the joined string cut an emoji in half ("M��").
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 export function crewInitials(name: string): string {
-  return name.split(/\s+/).map((w) => [...w][0] ?? '').join('').slice(0, 2).toUpperCase();
+  return name.split(/\s+/).filter(Boolean)
+    .map((w) => graphemes.segment(w)[Symbol.iterator]().next().value?.segment ?? '')
+    .slice(0, 2).join('').toUpperCase();
 }
 
 export function escapeHtml(s: string): string {

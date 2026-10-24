@@ -311,6 +311,13 @@ const dee = await signIn('dee');
   check('the create form shows the address the crew will get', form.includes('id="slug-preview"') && form.includes('127.0.0.1:' + port + '/crew/…'));
 }
 
+{
+  const emo = await signIn('emoji');
+  const s = loc(await emo.post('/crews', { name: `m${run} 😎` })).split('?')[0].slice('/crew/'.length);
+  const page = await (await emo.get(`/crew/${s}`)).text();
+  check('crew initials keep an emoji whole', page.includes('>M😎<') && !page.includes('�'));
+}
+
 github.close();
 console.log(failed === 0 ? '\nall passed' : `\n${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);
