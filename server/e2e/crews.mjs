@@ -54,7 +54,7 @@ const today = new Date().toISOString().slice(0, 10);
 const monday = (() => { const d = new Date(); const back = (d.getUTCDay() + 6) % 7; d.setUTCDate(d.getUTCDate() - back); return d.toISOString().slice(0, 10); })();
 const daysBefore = (day, n) => { const d = new Date(`${day}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
 function ships(user, day, n) {
-  d1(`INSERT INTO ship_events (session_id, user_github_id, day, ships) VALUES ('${randomUUID()}', ${user.id}, '${day}', ${n})`);
+  d1(`INSERT INTO ship_events (session_id, user_github_id, day, ships) VALUES ('${user.sid ?? randomUUID()}', ${user.id}, '${day}', ${n})`);
 }
 const crewIdOf = (slug) => d1(`SELECT id FROM crews WHERE slug = '${slug}' AND deleted_at IS NULL`)[0]?.id;
 const inviteOf = (slug) => d1(`SELECT invite_code FROM crews WHERE slug = '${slug}' AND deleted_at IS NULL`)[0]?.invite_code;
@@ -261,6 +261,13 @@ const dee = await signIn('dee');
   check('within the first visit / keeps the home page; later visits and signed-in people go to the leaderboard',
     sameVisit.status === 200 && laterVisit.status === 302 && loc(laterVisit) === '/leaderboard' && signedIn.status === 302 && loc(signedIn) === '/leaderboard',
     `${sameVisit.status} ${laterVisit.status} ${signedIn.status}`);
+  const sid = randomUUID();
+  d1(`INSERT INTO sessions (id, user_github_id, tool, project_hash, started_at, ended_at, duration_seconds, commits, lines_added, lines_removed, files_touched, momentum, submitted_at)
+      VALUES ('${sid}', ${ada.id}, 'claude', 'p', '${today}T00:00:00Z', '${today}T01:00:00Z', 3600, 1, 60, 0, 1, 'shipped', '${today}T01:00:00Z')`);
+  ships({ id: ada.id, sid }, today, 1);
+  const board = await (await anon.get('/leaderboard')).text();
+  check('the top three stand on a podium and the table carries on from #4',
+    board.includes('<ol class="podium"') && board.includes(`href="/@${ada.handle}"`) && !/<td class="rank">[123]<\/td>/.test(board));
   check('the leaderboard tells people crews exist, with a link to them', /<a class="callout" href="\/crews">[\s\S]*?crews[\s\S]*?<\/a>/.test(lb));
   const js = await anon.get('/assets/copy.js');
   check('the copy script is served as JavaScript from the site itself', js.status === 200 && js.headers.get('content-type').startsWith('text/javascript'));

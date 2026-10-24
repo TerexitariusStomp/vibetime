@@ -27,6 +27,7 @@ export const SITE_CSS = `
   --bad: #F87171; --bad-wash: #24100F; --bad-line: #4D1F1D;
   --heat-0: #1D1B26; --heat-1: #3A2C66; --heat-2: #5B45B3; --heat-3: #8B6CF0; --heat-4: #C4B5FD;
   --seg-track: #13121A; --seg-on: #262330;
+  --pod-top: #2E2A3A; --pod-front: #1F1C29; --pod-side: #16141E;
   --gem-1: #C4B5FD; --gem-2: #A78BFA; --gem-3: #7C3AED; --gem-4: #5B21B6;
   --on-crew: #0B0A0F;
   --font: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
@@ -45,6 +46,7 @@ export const SITE_CSS = `
   --bad: #C42B2B; --bad-wash: #FDF0EF; --bad-line: #F2C6C2;
   --heat-0: #ECE9F2; --heat-1: #DCD2FB; --heat-2: #B8A3F6; --heat-3: #8B6CF0; --heat-4: #6D28D9;
   --seg-track: #F4F2F8; --seg-on: #FFFFFF;
+  --pod-top: #F1EEF6; --pod-front: #E4E0EC; --pod-side: #D4CEE0;
   color-scheme: light;
 }
 @font-face { font-family: "Geist Mono"; src: url(${FONT_URL}) format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
@@ -280,6 +282,28 @@ tr.you td, tbody tr.you:hover td { background: var(--accent-wash); border-top: 1
 .foot a:hover { color: var(--text); }
 .foot code { font: inherit; }
 
+/* podium */
+.podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 20px; max-width: 620px; margin: 8px auto 28px; padding: 0; list-style: none; }
+.pod { grid-row: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+.pod-1 { grid-column: 2; } .pod-2 { grid-column: 1; } .pod-3 { grid-column: 3; }
+.pod-who { display: flex; flex-direction: column; align-items: center; gap: 8px; max-width: 100%; min-width: 0; text-decoration: none; }
+.pod-who .nm { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.pod-who:hover .nm { color: var(--accent); }
+.pod.you .av { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pod-n { color: var(--accent); font-size: 15px; font-weight: 600; }
+.pod-n small { color: var(--text-3); font-size: 12px; font-weight: 400; }
+.pod-block { --h: 56px; --top: var(--pod-top); position: relative; align-self: stretch; display: grid; place-items: center; height: var(--h); margin: 14px 12px 0 0; background: var(--pod-front); transform-origin: bottom; animation: rise 420ms steps(6, end) both; }
+.pod-block::before { content: ""; position: absolute; left: 0; right: -12px; top: -8px; height: 8px; background: var(--top); clip-path: polygon(0 100%, 12px 0, 100% 0, calc(100% - 12px) 100%); }
+.pod-block::after { content: ""; position: absolute; top: -8px; right: -12px; bottom: 0; width: 12px; background: var(--pod-side); clip-path: polygon(0 8px, 100% 0, 100% calc(100% - 8px), 0 100%); }
+.pod-1 .pod-block { --h: 84px; --top: var(--accent); }
+.pod-2 .pod-block { --h: 60px; animation-delay: 90ms; }
+.pod-3 .pod-block { --h: 44px; animation-delay: 180ms; }
+.pod-r { color: var(--text-3); font-size: 22px; font-weight: 600; letter-spacing: -0.03em; }
+.pod-1 .pod-r { color: var(--accent); }
+@keyframes rise { from { transform: scaleY(.15); } }
+/* Your row stays in view at the bottom until you scroll to where it is. */
+.board tr.you td { position: sticky; bottom: 0; }
+
 /* home */
 .hero { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 48px; align-items: center; padding: 64px 0 48px; }
 .display { font-size: 48px; line-height: 52px; letter-spacing: -0.05em; }
@@ -333,6 +357,14 @@ tr.you td, tbody tr.you:hover td { background: var(--accent-wash); border-top: 1
   .split, .trio { grid-template-columns: minmax(0, 1fr); }
   .split { gap: 0; }
   .sec-h { margin-top: 32px; }
+  .podium { gap: 10px; margin-bottom: 20px; }
+  .pod-who .nm { font-size: 13px; }
+  .pod-n small { display: none; }
+  .pod-block { margin-right: 8px; }
+  .pod-block::before { right: -8px; top: -6px; height: 6px; clip-path: polygon(0 100%, 8px 0, 100% 0, calc(100% - 8px) 100%); }
+  .pod-block::after { right: -8px; top: -6px; width: 8px; clip-path: polygon(0 6px, 100% 0, 100% calc(100% - 6px), 0 100%); }
+  .pod-1 .pod-block { --h: 64px; } .pod-2 .pod-block { --h: 46px; } .pod-3 .pod-block { --h: 34px; }
+  .pod-r { font-size: 18px; }
   .wrap { padding-inline: 16px; }
   .nav { position: static; }
   .nav-in { flex-wrap: wrap; gap: 10px 12px; padding-block: 10px 12px; }
