@@ -3,6 +3,7 @@ import { getSessions, updateSession, type Session } from './db.js';
 import { readAuth, markSignedOut, refreshAuth, jwtExpiresAtMs, rememberCommitKey, type AuthRecord } from './auth.js';
 import { request, ApiError } from './api.js';
 import { branchFingerprint } from './fingerprint.js';
+import { submitDgShip } from './dg.js';
 
 // Renew ahead of expiry so submissions rarely meet a 401. Two days of slack on
 // a seven-day token means one successful flush a week keeps auth alive forever.
@@ -181,6 +182,9 @@ export async function flushPendingSubmissions(budgetMs: number): Promise<void> {
     try {
       await postSession(session, auth, perRequest);
       await updateSession(session.id, { submittedAt: new Date().toISOString() });
+      // Forge-verified ship attestation for sessions on delta-git remotes.
+      // Best-effort and fire-and-forget — it never blocks the flush.
+      void submitDgShip(session);
     } catch (e) {
       if (e instanceof ApiError) {
         if (e.status === 401) {
