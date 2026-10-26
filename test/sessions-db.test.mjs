@@ -265,3 +265,31 @@ test('simultaneous writers recover one dead lock without losing any sessions', a
   assert.deepEqual(getSessions().map((s) => s.id).sort(), sessions.map((s) => s.id).sort());
   assert.equal(existsSync(LOCK_DIR + '.break'), false);
 });
+
+test('a live pid on a lock older than any real hold is treated as reused', async (t) => {
+  reset(t);
+  // After a reboot the dead holder's pid can belong to an unrelated process.
+  mkdirSync(LOCK_DIR);
+  writeFileSync(join(LOCK_DIR, 'pid'), String(process.pid));
+  age(join(LOCK_DIR, 'pid'), 11 * 60_000);
+  const session = makeSession();
+  await addSession(session);
+  assert.ok(getSessions().some((s) => s.id === session.id));
+  assert.equal(existsSync(LOCK_DIR), false);
+});
+
+test('a breaker gate left by a killed remover ages out', async (t) => {
+  reset(t);
+  const { pid } = spawnSync(process.execPath, ['-e', '']);
+  mkdirSync(LOCK_DIR);
+  writeFileSync(join(LOCK_DIR, 'pid'), String(pid));
+  const gate = LOCK_DIR + '.break';
+  mkdirSync(gate);
+  age(gate, 60_000);
+  t.after(() => rmSync(gate, { recursive: true, force: true }));
+  const session = makeSession();
+  await addSession(session);
+  assert.ok(getSessions().some((s) => s.id === session.id));
+  assert.equal(existsSync(gate), false);
+  assert.equal(existsSync(LOCK_DIR), false);
+});

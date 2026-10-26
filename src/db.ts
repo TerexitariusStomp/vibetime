@@ -77,6 +77,10 @@ const DB_PATH = join(VIBE_DIR, 'sessions.json');
 const LOCK_DIR = join(VIBE_DIR, 'sessions.lock');
 const BREAK_DIR = LOCK_DIR + '.break';
 const LOCK_STALE_MS = 10_000;
+// Every locked section is a short synchronous write, so no real holder keeps
+// the lock this long. Past it, a "live" pid is one the OS handed to another
+// process after the holder died (common after a reboot).
+const LOCK_PID_REUSE_MS = 10 * 60_000;
 
 function acquireLock(retried = false): boolean {
   try {
@@ -88,7 +92,12 @@ function acquireLock(retried = false): boolean {
     if (!lockIsStale()) return false;
     // Only one stale-lock remover may run. Recheck after taking this gate:
     // another process may already have replaced the dead holder with a live one.
-    try { mkdirSync(BREAK_DIR); } catch { return false; }
+    try { mkdirSync(BREAK_DIR); } catch {
+      // A remover killed inside the gate leaves it behind; age it out so the
+      // stale lock can still be broken.
+      clearStaleBreakDir();
+      return false;
+    }
     try {
       if (lockIsStale()) releaseLock();
       return acquireLock(true);
@@ -106,14 +115,21 @@ function lockIsStale(): boolean {
   try {
     const stat = statSync(pidFile);
     const pid = Number(readFileSync(pidFile, 'utf-8'));
-    if (Number.isInteger(pid) && pid > 0) return !processExists(pid);
-    return Date.now() - stat.mtimeMs > LOCK_STALE_MS;
+    const age = Date.now() - stat.mtimeMs;
+    if (Number.isInteger(pid) && pid > 0) return !processExists(pid) || age > LOCK_PID_REUSE_MS;
+    return age > LOCK_STALE_MS;
   } catch {}
   try {
     return Date.now() - statSync(LOCK_DIR).mtimeMs > LOCK_STALE_MS;
   } catch {
     return false;
   }
+}
+
+function clearStaleBreakDir(): void {
+  try {
+    if (Date.now() - statSync(BREAK_DIR).mtimeMs > LOCK_STALE_MS) rmdirSync(BREAK_DIR);
+  } catch {}
 }
 
 function processExists(pid: number): boolean {
