@@ -151,7 +151,8 @@ export function stripZcodeHooks(config: ZcodeConfig): { config: ZcodeConfig; rem
 }
 
 export function hasZcodeHooks(path = defaultConfigPath()): boolean {
-  const events = readConfig(path)?.hooks?.events;
+  const read = readConfig(path);
+  const events = 'config' in read ? read.config.hooks?.events : undefined;
   if (!events) return false;
   return Object.values(events).some((list) => Array.isArray(list) && list.some((g) => isVibeZcodeHook(g)));
 }
@@ -160,21 +161,27 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function readConfig(path: string): ZcodeConfig | null {
-  if (!existsSync(path)) return {};
+// Why the file can't be used, worded for the user: a parse failure and a
+// valid file in a shape we don't recognize need different fixes.
+type ConfigRead = { config: ZcodeConfig } | { problem: string };
+
+function readConfig(path: string): ConfigRead {
+  if (!existsSync(path)) return { config: {} };
+  let value: unknown;
   try {
     const raw = readFileSync(path, 'utf-8').trim();
-    const value: unknown = raw ? JSON.parse(raw) : {};
-    if (!isObject(value)) return null;
-    if (value.hooks !== undefined) {
-      if (!isObject(value.hooks)) return null;
-      if (value.hooks.events !== undefined && !isObject(value.hooks.events)) return null;
-      if (value.hooks.events && !Object.values(value.hooks.events).every(Array.isArray)) return null;
-    }
-    return value as ZcodeConfig;
+    value = raw ? JSON.parse(raw) : {};
   } catch {
-    return null;
+    return { problem: 'is not valid JSON' };
   }
+  const unexpected = { problem: 'has a layout vibe does not recognize (expected hooks.events to map event names to lists)' };
+  if (!isObject(value)) return unexpected;
+  if (value.hooks !== undefined) {
+    if (!isObject(value.hooks)) return unexpected;
+    if (value.hooks.events !== undefined && !isObject(value.hooks.events)) return unexpected;
+    if (value.hooks.events && !Object.values(value.hooks.events).every(Array.isArray)) return unexpected;
+  }
+  return { config: value as ZcodeConfig };
 }
 
 function writeConfig(path: string, config: ZcodeConfig): void {
@@ -184,11 +191,12 @@ function writeConfig(path: string, config: ZcodeConfig): void {
 
 export function installZcodeHooks(path = defaultConfigPath(), silent = false): void {
   const say = (msg: string) => { if (!silent) console.log(msg); };
-  const current = readConfig(path);
-  if (current === null) {
-    say(`\n  ${RED('✗')} vibe: ${path} is not valid JSON, fix it and re-run\n`);
+  const read = readConfig(path);
+  if (!('config' in read)) {
+    say(`\n  ${RED('✗')} vibe: ${path} ${read.problem}, fix it and re-run\n`);
     return;
   }
+  const current = read.config;
 
   const { config, added, existing, updated } = mergeZcodeHooks(current);
   if (added === 0 && updated === 0) {
@@ -205,11 +213,12 @@ export function installZcodeHooks(path = defaultConfigPath(), silent = false): v
 }
 
 export function removeZcodeHooks(path = defaultConfigPath()): void {
-  const current = readConfig(path);
-  if (current === null) {
-    console.log(`\n  ${RED('✗')} vibe: ${path} is not valid JSON, fix it and re-run\n`);
+  const read = readConfig(path);
+  if (!('config' in read)) {
+    console.log(`\n  ${RED('✗')} vibe: ${path} ${read.problem}, fix it and re-run\n`);
     return;
   }
+  const current = read.config;
 
   const { config, removed } = stripZcodeHooks(current);
   if (removed === 0) {

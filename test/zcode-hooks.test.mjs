@@ -191,3 +191,20 @@ test('installer preserves syntactically valid but unsupported config shapes', (t
     }
   } finally { console.log = originalLog; }
 });
+
+test('installer tells a parse error apart from an unsupported shape', (t) => {
+  const path = join(scratch(t), 'config.json');
+  const originalLog = console.log;
+  const lines = [];
+  console.log = (msg) => lines.push(String(msg));
+  try {
+    writeFileSync(path, '{ not json');
+    installZcodeHooks(path);
+    assert.match(lines.join('\n'), /is not valid JSON/);
+    lines.length = 0;
+    writeFileSync(path, JSON.stringify({ hooks: [] }));
+    installZcodeHooks(path);
+    assert.doesNotMatch(lines.join('\n'), /not valid JSON/);
+    assert.match(lines.join('\n'), /layout vibe does not recognize/);
+  } finally { console.log = originalLog; }
+});
