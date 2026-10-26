@@ -165,3 +165,22 @@ test('legacy duplicate rows settle together without later uploading the smaller 
   assert.equal(posts[0].commits, 1);
   assert.ok(getSessions().every((s) => s.submittedAt));
 });
+
+test('a session that always outlasts the budget does not block the ones behind it', async () => {
+  const slow = session();
+  slow.startedAt = new Date(Date.now() - 900000).toISOString();
+  const [, fast] = reset([slow, session()]);
+  rmSync(join(home, 'submit-attempts.json'), { force: true });
+  response = async (sent) => {
+    if (sent.id === slow.id) await new Promise((resolve) => setTimeout(resolve, 1500));
+    return 200;
+  };
+  await flushPendingSubmissions(300);
+  assert.deepEqual(posts.map((s) => s.id), [slow.id]);
+  await flushPendingSubmissions(300);
+  // The next drain starts with the session that was not tried, then spends any
+  // budget left on the slow one again.
+  assert.deepEqual(posts.slice(0, 2).map((s) => s.id), [slow.id, fast.id]);
+  assert.ok(getSessions().find((s) => s.id === fast.id).submittedAt);
+  assert.equal(getSessions().find((s) => s.id === slow.id).submittedAt, undefined);
+});

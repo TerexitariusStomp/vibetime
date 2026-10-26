@@ -206,6 +206,23 @@ function claimFlushLock(retried = false): boolean {
   }
 }
 
+// When each queued session was last sent, kept beside the queue rather than in
+// sessions.json so recording it never changes the snapshot an upload settles.
+// Only the submit.lock owner reads or writes it.
+const ATTEMPTS_PATH = join(VIBE_DIR, 'submit-attempts.json');
+
+function readAttempts(): Record<string, number> {
+  try {
+    const value: unknown = JSON.parse(readFileSync(ATTEMPTS_PATH, 'utf8'));
+    if (value && typeof value === 'object' && !Array.isArray(value)) return value as Record<string, number>;
+  } catch {}
+  return {};
+}
+
+function writeAttempts(attempts: Record<string, number>): void {
+  try { writeFileSync(ATTEMPTS_PATH, JSON.stringify(attempts)); } catch {}
+}
+
 export async function flushPendingSubmissions(budgetMs: number): Promise<void> {
   const deadline = Date.now() + budgetMs;
   if (budgetMs <= 0 || pendingSessions().length === 0 || !readAuth()) return;
@@ -223,9 +240,16 @@ export async function flushPendingSubmissions(budgetMs: number): Promise<void> {
 async function flushPendingLocked(deadline: number): Promise<void> {
   // Read after claiming the lock, so a waiter never sends an already-drained
   // snapshot. Empty queues do not renew auth or contact the network.
-  const pending = pendingSessions().sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+  // Least recently attempted first: a session whose upload always outlasts the
+  // hook budget would otherwise stop every drain at the front of the queue, and
+  // nothing behind it would ever go out.
+  const attempts = readAttempts();
+  const pending = pendingSessions().sort((a, b) =>
+    (attempts[a.id] ?? 0) - (attempts[b.id] ?? 0) || a.startedAt.localeCompare(b.startedAt));
   const budgetMs = deadline - Date.now();
   if (pending.length === 0 || budgetMs <= 0) return;
+  // Drop entries for sessions that have left the queue.
+  for (const id of Object.keys(attempts)) if (!pending.some((p) => p.id === id)) delete attempts[id];
 
   let auth: AuthRecord | null = await currentAuth(budgetMs);
   if (!auth) return;
@@ -240,6 +264,9 @@ async function flushPendingLocked(deadline: number): Promise<void> {
     const remaining = deadline - Date.now();
     if (remaining <= 0) return;
     const perRequest = Math.min(remaining, 1500);
+    // Recorded before sending: a hook process can be cut off mid-request.
+    attempts[session.id] = Date.now();
+    writeAttempts(attempts);
     try {
       await postSession(session, auth, perRequest);
       await updateSession(session.id, { submittedAt: new Date().toISOString() }, snapshots);
