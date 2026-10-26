@@ -279,6 +279,8 @@ const dee = await signIn('dee');
   d1(`INSERT INTO sessions (id, user_github_id, tool, project_hash, started_at, ended_at, duration_seconds, commits, lines_added, lines_removed, files_touched, momentum, submitted_at)
       VALUES ('${sid}', ${ada.id}, 'claude', 'p', '${today}T00:00:00Z', '${today}T01:00:00Z', 3600, 1, 60, 0, 1, 'shipped', '${today}T01:00:00Z')`);
   ships({ id: ada.id, sid }, today, 1);
+  // Rows written here skip the submit path that clears the cached board.
+  await new Promise((r) => setTimeout(r, 61_000));
   const board = await (await anon.get('/leaderboard')).text();
   check('the top three stand on a podium and the table carries on from #4',
     board.includes('<ol class="podium"') && board.includes(`href="/@${ada.handle}"`) && !/<td class="rank">[123]<\/td>/.test(board));

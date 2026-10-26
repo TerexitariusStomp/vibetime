@@ -1,4 +1,5 @@
 import type { Env } from './env.js';
+import { forget, shared } from './cache.js';
 import { b64url } from './jwt.js';
 import { dayKey, startOfCalendarMonth, startOfCalendarWeek } from './window.js';
 
@@ -109,7 +110,21 @@ export interface BoardEntry {
   memberCount: number;
 }
 
-export async function crewBoard(env: Env, window: CrewWindow): Promise<BoardEntry[]> {
+const CREW_WINDOWS: CrewWindow[] = ['week', 'month', 'all'];
+
+function crewBoardKey(window: CrewWindow): string {
+  return `crews:${window}:${sinceDay(window)}`;
+}
+
+export function crewBoard(env: Env, window: CrewWindow): Promise<BoardEntry[]> {
+  return shared(env, crewBoardKey(window), 60, () => computeCrewBoard(env, window));
+}
+
+export function forgetCrewBoards(env: Env): Promise<void> {
+  return forget(env, CREW_WINDOWS.map(crewBoardKey));
+}
+
+async function computeCrewBoard(env: Env, window: CrewWindow): Promise<BoardEntry[]> {
   const [totals, crews, members] = await env.DB.batch([
     env.DB.prepare(
       `${countedShips('1 = 1')}
@@ -283,6 +298,7 @@ export async function createCrew(env: Env, ownerId: number, rawName: unknown): P
         ).bind(slug, ownerId, now),
       ]);
       if ((crew.meta.changes ?? 0) === 0) return { ok: false, reason: 'limit' };
+      await forgetCrewBoards(env);
       return { ok: true, slug };
     } catch (e) {
       if (!(e instanceof Error) || !/UNIQUE/i.test(e.message)) throw e;
@@ -303,7 +319,10 @@ export async function joinCrew(env: Env, crewId: number, githubId: number): Prom
        AND (SELECT COUNT(*) FROM crew_members lm JOIN crews lc ON lc.id = lm.crew_id
             WHERE lm.user_github_id = ?2 AND lm.left_at IS NULL AND lc.deleted_at IS NULL) < ${MAX_CREWS_PER_USER}`,
   ).bind(crewId, githubId, new Date().toISOString()).run();
-  if ((res.meta.changes ?? 0) > 0) return 'joined';
+  if ((res.meta.changes ?? 0) > 0) {
+    await forgetCrewBoards(env);
+    return 'joined';
+  }
 
   const why = await env.DB.prepare(
     `SELECT c.deleted_at IS NOT NULL AS gone,
@@ -321,6 +340,7 @@ export async function leaveCrew(env: Env, crewId: number, githubId: number): Pro
   await env.DB.prepare(
     `UPDATE crew_members SET left_at = ? WHERE crew_id = ? AND user_github_id = ? AND left_at IS NULL`,
   ).bind(new Date().toISOString(), crewId, githubId).run();
+  await forgetCrewBoards(env);
 }
 
 export async function deleteCrew(env: Env, crewId: number): Promise<void> {
@@ -329,16 +349,19 @@ export async function deleteCrew(env: Env, crewId: number): Promise<void> {
     env.DB.prepare(`UPDATE crews SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL`).bind(now, crewId),
     env.DB.prepare(`UPDATE crew_members SET left_at = ? WHERE crew_id = ? AND left_at IS NULL`).bind(now, crewId),
   ]);
+  await forgetCrewBoards(env);
 }
 
 export async function setOpen(env: Env, crewId: number, open: boolean): Promise<void> {
   await env.DB.prepare(`UPDATE crews SET open = ? WHERE id = ?`).bind(open ? 1 : 0, crewId).run();
+  await forgetCrewBoards(env);
 }
 
 export async function renameCrew(env: Env, crewId: number, rawName: unknown): Promise<boolean> {
   const name = cleanName(rawName);
   if (!name) return false;
   await env.DB.prepare(`UPDATE crews SET name = ? WHERE id = ?`).bind(name, crewId).run();
+  await forgetCrewBoards(env);
   return true;
 }
 

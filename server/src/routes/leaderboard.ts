@@ -1,4 +1,5 @@
 import type { Env } from '../env.js';
+import { forget, shared } from '../cache.js';
 import { PAGE_CSP, html, json } from '../http.js';
 import { renderLeaderboard } from '../views/leaderboard.js';
 import { currentViewer, pageCacheControl, signInEnabled, themeOf, webOrigin } from '../web-session.js';
@@ -57,12 +58,28 @@ function parseWindow(value: string | null): Window {
   return 'week';
 }
 
-export async function buildData(env: Env, window: Window): Promise<LeaderboardData> {
+function boardKey(window: Window): string {
+  return `board:${window}:${sinceDayOf(window)}`;
+}
+
+export function buildData(env: Env, window: Window): Promise<LeaderboardData> {
+  return shared(env, boardKey(window), 60, () => computeData(env, window));
+}
+
+export function forgetBoards(env: Env): Promise<void> {
+  return forget(env, (Object.keys(WINDOWS) as Window[]).map(boardKey));
+}
+
+function sinceDayOf(window: Window): string {
   const sinceMs = window === 'all' ? 0
     : window === 'month' ? startOfCalendarMonth().getTime()
     : window === 'week' ? startOfCalendarWeek().getTime()
     : Date.now() - WINDOWS[window];
-  const sinceDay = dayKey(new Date(sinceMs));
+  return dayKey(new Date(sinceMs));
+}
+
+async function computeData(env: Env, window: Window): Promise<LeaderboardData> {
+  const sinceDay = sinceDayOf(window);
 
   // The totals and the ranking do not depend on each other, so they share one
   // round trip to the database instead of taking two.

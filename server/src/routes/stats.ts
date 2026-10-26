@@ -1,4 +1,5 @@
 import type { Env } from '../env.js';
+import { shared } from '../cache.js';
 import { PAGE_CSP, html, json } from '../http.js';
 import { renderStats } from '../views/stats.js';
 import { currentViewer, pageCacheControl, signInEnabled, themeOf, webOrigin } from '../web-session.js';
@@ -10,7 +11,13 @@ export interface StatsData {
   crews: number;
 }
 
-export async function buildStats(env: Env): Promise<StatsData> {
+// All-time totals move slowly and cost a pass over every table they count, so
+// ten minutes old is fine.
+export function buildStats(env: Env): Promise<StatsData> {
+  return shared(env, 'stats', 600, () => computeStats(env));
+}
+
+async function computeStats(env: Env): Promise<StatsData> {
   const [shippedRes, sessionRes, crewRes] = await Promise.all([
     env.DB.prepare(
       `SELECT COUNT(DISTINCT user_github_id) AS devs,
