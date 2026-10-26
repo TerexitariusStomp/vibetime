@@ -4,6 +4,8 @@ import { requireAuth } from '../auth-middleware.js';
 import { checkAndRecord } from '../ratelimit.js';
 import { scoreSession, clampBaseline, earnsEvents, type Stats } from '../score.js';
 import { commitKeyFor, COMMIT_KEY_VERSION } from '../commit-key.js';
+import { forgetCrewBoards } from '../crews.js';
+import { forgetBoards } from './leaderboard.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const VALID_TIERS = new Set(['shipped', 'progressed', 'tinkering', 'exploring', 'idle', 'interrupted']);
@@ -387,6 +389,8 @@ export async function submitSession(request: Request, env: Env): Promise<Respons
         WHERE id = ? AND user_github_id = ?`,
     ).bind(stats.commits, stats.linesAdded, stats.linesRemoved, stats.filesTouched, parsed.id, auth.sub).run();
   }
+  // Someone who just shipped looks for it on the board straight away.
+  if (landed > 0) await Promise.all([forgetBoards(env), forgetCrewBoards(env)]);
 
   await env.DB.prepare(`UPDATE users SET last_seen_at = ? WHERE github_id = ?`).bind(submittedAt, auth.sub).run();
 

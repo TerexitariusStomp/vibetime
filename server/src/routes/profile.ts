@@ -5,6 +5,7 @@ import { backFrom } from '../views/layout.js';
 import { badgeValue, renderBadge, renderProfile, renderProfileNotFound } from '../views/profile.js';
 import { crewBoard, crewsOf } from '../crews.js';
 import { dayKey, startOfCalendarMonth, startOfCalendarWeek } from '../window.js';
+import { buildData } from './leaderboard.js';
 
 // The last twelve weeks on a profile: this week and the eleven before it, Monday first.
 const SKYLINE_WEEKS = 12;
@@ -61,17 +62,16 @@ async function windowStats(
 
 async function weekRank(
   env: Env,
-  githubId: number,
+  user: { github_id: number; handle: string },
   sinceDay: string,
   weekShips: number,
 ): Promise<{ rank: number | null; devCount: number }> {
-  const totals = await env.DB.prepare(
-    `SELECT COUNT(DISTINCT user_github_id) AS dev_count
-     FROM ship_events
-     WHERE day >= ?`,
-  ).bind(sinceDay).first<{ dev_count: number }>();
-  const devCount = totals?.dev_count ?? 0;
+  const board = await buildData(env, 'week');
+  const devCount = board.devCount;
   if (weekShips <= 0 || devCount === 0) return { rank: null, devCount };
+  const listed = board.entries.find((e) => e.handle === user.handle);
+  if (listed) return { rank: listed.rank, devCount };
+  const githubId = user.github_id;
 
   // Same ordering as the leaderboard: more ships first, earlier first ship breaks ties.
   const ahead = await env.DB.prepare(
@@ -121,7 +121,7 @@ async function buildProfile(env: Env, handle: string): Promise<ProfileData | nul
      WHERE e.user_github_id = ?`,
   ).bind(user.github_id).first<{ last_shipped_at: string | null }>();
 
-  const { rank, devCount } = await weekRank(env, user.github_id, weekStart, week.ships);
+  const { rank, devCount } = await weekRank(env, user, weekStart, week.ships);
 
   const since = startOfCalendarWeek();
   since.setUTCDate(since.getUTCDate() - 7 * (SKYLINE_WEEKS - 1));
