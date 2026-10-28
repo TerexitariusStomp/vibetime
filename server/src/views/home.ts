@@ -39,7 +39,7 @@ export function renderHome(stats: StatsData, week: LeaderboardEntry[], crews: Bo
     body: `<section class="hero">
     <div>
       <h1 class="display">track what you vibe.</h1>
-      <p class="lead">every session you ship with AI, counted from git. vibetime wraps claude, codex, gemini, aster and opencode, and hooks into the Claude Code, Codex and Cursor apps. it never reads your code.</p>
+      <p class="lead">every session you ship with AI, counted from git. vibetime wraps claude, codex, gemini, aster and opencode, and hooks into the Claude Code, Codex, Cursor and ZCode apps. it never reads your code.</p>
       <div class="actions">
         <button class="btn btn-primary hide-sm" type="button" data-copy="${escapeHtml(INSTALL.join('\n'))}">${icon('copy', 'copy-idle')}${icon('check', 'copy-done')}<span class="swap"><span class="copy-idle">copy the install</span><span class="copy-done">copied</span></span></button>
         <a class="btn hide-sm" href="/leaderboard">${icon('trophy')}see the leaderboard</a>
