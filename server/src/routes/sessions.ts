@@ -106,9 +106,16 @@ function parseCommitFacts(s: Record<string, unknown>): CommitFact[] | null {
   return facts;
 }
 
-// What this session reported that is already credited elsewhere, to be taken
-// out of its totals, or null when the facts could not be recorded: a failure
-// here must leave the submit scored exactly as it was before commit facts.
+interface Ledger {
+  // What this session reported that is already credited elsewhere, to be
+  // taken out of its totals.
+  dup: Stats;
+  // Work this session owns and has not yet been paid a ship for.
+  unpaid: string[];
+}
+
+// The ledger's view of a submit, or null when the facts could not be recorded:
+// a failure here must leave the totals scored exactly as before commit facts.
 //
 // Credit belongs to a piece of work, not a commit id. A rebase, amend or
 // cherry-pick gives the same work a new id but keeps its author, author time
@@ -118,7 +125,7 @@ function parseCommitFacts(s: Record<string, unknown>): CommitFact[] | null {
 // changes all of that, but a squash of an up-to-date branch produces the same
 // tree as the branch's last commit, so a later commit with a tree already on
 // record is a copy of work already counted.
-async function creditedElsewhere(env: Env, uid: number, session: IncomingSession, facts: CommitFact[]): Promise<Stats | null> {
+async function creditedElsewhere(env: Env, uid: number, session: IncomingSession, facts: CommitFact[]): Promise<Ledger | null> {
   try {
     const list = JSON.stringify(facts.map((f) => ({
       ...f,
@@ -141,7 +148,7 @@ async function creditedElsewhere(env: Env, uid: number, session: IncomingSession
           WHERE c.user_github_id = ?1 AND c.commit_id IN (SELECT json_extract(value, '$.id') FROM json_each(?4))`,
       ).bind(uid, session.id, new Date().toISOString(), list),
       env.DB.prepare(
-        `SELECT c.commit_id AS id, w.session_id AS owner,
+        `SELECT c.commit_id AS id, w.session_id AS owner, w.work_key AS work, w.paid_at IS NULL AS unpaid,
                 EXISTS (SELECT 1 FROM commit_credits t
                          WHERE t.user_github_id = c.user_github_id AND t.project_hash = c.project_hash
                            AND t.tree_id = c.tree_id AND t.commit_id <> c.commit_id
@@ -151,7 +158,7 @@ async function creditedElsewhere(env: Env, uid: number, session: IncomingSession
           WHERE c.user_github_id = ?1 AND c.commit_id IN (SELECT json_extract(value, '$.id') FROM json_each(?2))`,
       ).bind(uid, list),
     ]);
-    const rows = (found.results ?? []) as { id: string; owner: string; copy: number }[];
+    const rows = (found.results ?? []) as { id: string; owner: string; work: string; unpaid: number; copy: number }[];
     const elsewhere = new Set(rows.filter((r) => r.owner !== session.id || r.copy).map((r) => r.id));
     const dup: Stats = { commits: 0, linesAdded: 0, linesRemoved: 0, filesTouched: 0 };
     for (const f of facts) {
@@ -161,7 +168,8 @@ async function creditedElsewhere(env: Env, uid: number, session: IncomingSession
       dup.linesRemoved += f.linesRemoved;
       dup.filesTouched += f.files;
     }
-    return dup;
+    const unpaid = [...new Set(rows.filter((r) => r.owner === session.id && !r.copy && r.unpaid).map((r) => r.work))];
+    return { dup, unpaid };
   } catch (e) {
     console.warn(`commit facts not recorded: ${e instanceof Error ? e.message : String(e)}`);
     return null;
@@ -197,6 +205,31 @@ async function paidToTwin(env: Env, uid: number, session: IncomingSession, stats
     latest, session.startedAt,
   ).first();
   return twin !== null;
+}
+
+// Totals alone cannot tell new work from old work coming back. A session's
+// commits are whatever its checkouts' branches reach, so switching a checkout
+// away and back drops them and returns them, and two installed CLI versions
+// can take turns reporting one session with and without the ledger. Each
+// return reads as new totals. So a session the ledger tracks earns a ship only
+// for commits it has not been paid for, claimed here so two submits racing on
+// one session cannot both spend them. A session the ledger has never seen
+// (CLIs before 0.14) is scored on its totals as before.
+async function payableShips(env: Env, uid: number, sessionId: string, ledger: Ledger | null, wanted: number): Promise<number> {
+  if (!ledger) {
+    const tracked = await env.DB.prepare(
+      `SELECT 1 FROM work_credits WHERE session_id = ? AND user_github_id = ? LIMIT 1`,
+    ).bind(sessionId, uid).first();
+    // Its work stays unpaid, so it is paid on the next submit that carries it.
+    return tracked ? 0 : wanted;
+  }
+  if (ledger.unpaid.length === 0) return 0;
+  const claimed = await env.DB.prepare(
+    `UPDATE work_credits SET paid_at = ?
+      WHERE user_github_id = ? AND session_id = ? AND paid_at IS NULL
+        AND work_key IN (SELECT value FROM json_each(?))`,
+  ).bind(new Date().toISOString(), uid, sessionId, JSON.stringify(ledger.unpaid)).run();
+  return Math.min(claimed.meta.changes ?? 0, wanted);
 }
 
 // A 400 makes the CLI drop the session for good, so the reason is logged: it
@@ -252,7 +285,8 @@ export async function submitSession(request: Request, env: Env): Promise<Respons
   // anything is scored, so a commit counts once however many sessions and
   // machines report it. Files are counts, not names, so theirs come out as a
   // count too: a floor, never a union.
-  const dup = parsed.commitFacts ? await creditedElsewhere(env, auth.sub, parsed, parsed.commitFacts) : null;
+  const ledger = parsed.commitFacts ? await creditedElsewhere(env, auth.sub, parsed, parsed.commitFacts) : null;
+  const dup = ledger?.dup ?? null;
   const stats: Stats = {
     commits: Math.max(parsed.commits - (dup?.commits ?? 0), 0),
     linesAdded: Math.max(parsed.linesAdded - (dup?.linesAdded ?? 0), 0),
@@ -360,11 +394,12 @@ export async function submitSession(request: Request, env: Env): Promise<Respons
     ? earnsEvents(baseline, stats, newDays.length)
     : bumpDay !== undefined && earnsEvents(baseline, stats, 1);
   const paidElsewhere = earns && !parsed.commitFacts && await paidToTwin(env, auth.sub, parsed, stats);
+  const payable = earns && !paidElsewhere ? await payableShips(env, auth.sub, parsed.id, ledger, newDays.length || 1) : 0;
 
   let landed = 0;
-  if (earns && !paidElsewhere) {
+  if (payable > 0) {
     if (newDays.length > 0) {
-      for (const day of newDays) {
+      for (const day of newDays.slice(0, payable)) {
         const res = await env.DB.prepare(
           `INSERT OR IGNORE INTO ship_events (session_id, user_github_id, day, ships) VALUES (?1, ?2, ?3, 1)`,
         ).bind(parsed.id, auth.sub, day).run();

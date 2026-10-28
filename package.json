@@ -1,6 +1,6 @@
 {
   "name": "vibetime-cli",
-  "version": "0.14.1",
+  "version": "0.15.0",
   "description": "Track what you ship in AI coding sessions",
   "type": "module",
   "bin": {
@@ -21,7 +21,8 @@
     "gemini",
     "aster",
     "opencode",
-    "cursor"
+    "cursor",
+    "zcode"
   ],
   "author": "iamnotstatic",
   "license": "MIT",

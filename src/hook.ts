@@ -9,12 +9,12 @@ import { reconcileInstall } from './reconcile.js';
 import { commitIdentities } from './auth.js';
 import { TUNABLES, refreshTunables } from './remote-config.js';
 
-// Claude Code, Codex, and Cursor deliver a JSON payload on stdin to every hook
+// Claude Code, Codex, Cursor, and ZCode deliver a JSON payload on stdin to every hook
 // command. We read only the fields below — never the transcript, prompts, or
 // model output — so hook-tracked sessions stay within vibetime's "git metadata
 // only" privacy model.
 interface HookInput {
-  session_id?: string;
+  session_id?: string; // ZCode: sess_<uuid>, sub-agents sess_subagent_agent_<uuid>
   conversation_id?: string; // Cursor: same as session_id
   cwd?: string;
   workspace_roots?: string[]; // Cursor: workspace folders (cwd is often absent)
@@ -36,10 +36,10 @@ const IN_PROGRESS_SUBMIT_INTERVAL_MS = TUNABLES.inProgressSubmitIntervalMs;
 const HOOK_NETWORK_BUDGET_MS = 1200;
 
 type HookEvent = 'session-start' | 'activity' | 'session-end';
-export type HookTool = 'claude' | 'codex' | 'cursor';
+export type HookTool = 'claude' | 'codex' | 'cursor' | 'zcode';
 
 export function parseHookTool(value: string): HookTool {
-  if (value === 'codex' || value === 'cursor') return value;
+  if (value === 'codex' || value === 'cursor' || value === 'zcode') return value;
   return 'claude';
 }
 
@@ -52,8 +52,13 @@ function resolveTool(tool: HookTool, input: HookInput): HookTool {
   return 'claude';
 }
 
+// ZCode prefixes its session ids, so the uuid inside is the id. Its sub-agents
+// carry a longer prefix and fail the uuid check, which keeps a sub-agent from
+// opening a session of its own alongside the one that spawned it.
+const ZCODE_SESSION_RE = /^sess_([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
 function resolveSessionId(input: HookInput): string | undefined {
-  if (input.session_id) return input.session_id;
+  if (input.session_id) return input.session_id.replace(ZCODE_SESSION_RE, '$1');
   if (input.conversation_id) return input.conversation_id;
   return undefined;
 }
@@ -159,7 +164,10 @@ async function onSessionStart(sessionId: string, cwd: string, tool: HookTool): P
   // activity events: those fire on every tool call.
   reconcileInstall();
   await refreshTunables(HOOK_NETWORK_BUDGET_MS).catch(() => {});
-  await refreshAndReap();
+  // A desktop session left open is only ever finalized here, by the reaper, and
+  // it would otherwise wait for some other session's clean end to be sent.
+  // Only when something settled, so a quiet start spends no time on the network.
+  if (await refreshAndReap()) await flushPendingSubmissions(HOOK_NETWORK_BUDGET_MS).catch(() => {});
 
   // SessionStart can also fire when an existing conversation is resumed — key
   // off the provider's session id so a session is only opened once.
@@ -252,10 +260,7 @@ async function onActivity(sessionId: string, cwd: string): Promise<void> {
 // marked before sending so a failure waits for the next window instead of
 // looping; the signature only once the server has it, so a failure is resent.
 async function submitProgress(session: Session): Promise<void> {
-  if (session.exitCode !== -1 || session.momentum !== 'shipped') return;
-
-  const signature = progressSignature(session);
-  if (signature === session.acceptedProgressSignature) return;
+  if (session.exitCode !== -1) return;
 
   const last = session.lastProgressSubmitAt ? Date.parse(session.lastProgressSubmitAt) : 0;
   if (last && Date.now() - last < IN_PROGRESS_SUBMIT_INTERVAL_MS) return;
@@ -263,6 +268,16 @@ async function submitProgress(session: Session): Promise<void> {
   try {
     await updateSession(session.id, { lastProgressSubmitAt: new Date().toISOString() });
   } catch { return; }
+
+  // A settled session normally waits for a clean end, but when every endcard
+  // flush of a day fails — one rate-limit window is enough — nothing ever
+  // retriggers: desktop sessions can stay open for days. This one is live and
+  // already on the network, so it carries the settled queue with it.
+  await flushPendingSubmissions(HOOK_NETWORK_BUDGET_MS).catch(() => {});
+
+  if (session.momentum !== 'shipped') return;
+  const signature = progressSignature(session);
+  if (signature === session.acceptedProgressSignature) return;
 
   if (await submitInProgress(session, HOOK_NETWORK_BUDGET_MS).catch(() => false)) {
     try { await updateSession(session.id, { acceptedProgressSignature: signature }); } catch {}
