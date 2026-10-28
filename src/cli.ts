@@ -8,6 +8,7 @@ import { renderStatus, renderLog, renderLeaderboard, renderUpgradeNotice } from 
 import { recommendedUpgrade, recommendedUpgradeReason } from './remote-config.js';
 import { renderTerminalCard, writeHtmlCard } from './share.js';
 import { wrapTool } from './wrap.js';
+import { validForgeHost } from './forge.js';
 import { initShellHooks, removeShellHooks } from './init.js';
 import { isInstalled } from './reconcile.js';
 import { installClaudeHooks, removeClaudeHooks } from './claude-hooks.js';
@@ -259,6 +260,15 @@ configCmd
     const config = readConfig();
     if (key === 'handle') {
       config.handle = value;
+    } else if (key === 'forge') {
+      if (value === 'off') {
+        delete config.forge;
+      } else if (validForgeHost(value)) {
+        config.forge = value.toLowerCase();
+      } else {
+        console.log(`\n  ${RED('✗')} forge must be a host like code.example.com, or off\n`);
+        return;
+      }
     } else if (key === 'thresholdLines' || key === 'thresholdFiles') {
       const num = parseInt(value, 10);
       if (isNaN(num)) {
@@ -297,6 +307,7 @@ configCmd
     console.log(`  handle:         ${config.handle || '(not set)'}`);
     console.log(`  thresholdLines: ${config.thresholdLines}`);
     console.log(`  thresholdFiles: ${config.thresholdFiles}`);
+    console.log(`  forge:          ${config.forge || '(off)'}`);
     console.log();
   });
 
