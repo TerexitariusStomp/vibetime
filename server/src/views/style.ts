@@ -422,6 +422,19 @@ tr.you td, tbody tr.you:hover td { background: var(--accent-wash); border-top: 1
 .crew-head .who { gap: 18px; }
 .crew-head h1 { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 28px; line-height: 34px; letter-spacing: -0.04em; }
 .access { display: grid; justify-items: end; gap: 6px; font-size: 12px; color: var(--text-3); }
+.whats-new { position: fixed; right: 24px; bottom: 24px; z-index: 20; width: 320px; padding: 16px; display: grid; gap: 12px; background: var(--surface-1); border: 1px solid var(--line-strong); border-radius: var(--r-3); animation: wn-in var(--t-slow) var(--ease-out) both; }
+.whats-new[hidden] { display: none; }
+.wn-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: -4px -6px -4px 0; }
+.wn-h b { font-weight: 600; }
+.whats-new p { margin: 0; color: var(--text-2); font-size: 13px; }
+.wn-notes { color: var(--text-3); font-size: 12px; text-decoration: underline; text-underline-offset: 3px; justify-self: start; }
+.wn-notes:hover { color: var(--text); }
+@keyframes wn-in { from { transform: translateY(8px); opacity: 0; } }
+/* A phone cannot run the install, so the card there is only the news. */
+@media (max-width: 640px) {
+  .whats-new { left: 16px; right: 16px; bottom: 16px; width: auto; gap: 8px; padding: 12px 16px; }
+  .whats-new .cmd { display: none; }
+}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
   @view-transition { navigation: none; }
@@ -448,6 +461,19 @@ document.addEventListener('click', function (e) {
   var fallback = function () { var i = document.getElementById('invite-link'); if (i) { i.focus(); i.select(); } };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(b.getAttribute('data-copy')).then(done, fallback); else fallback();
 });
+// The what's-new card stays dismissed for its version only, so the next
+// release shows again. Storage can be off or full; then it simply shows.
+(function () {
+  var card = document.getElementById('whats-new');
+  if (!card) return;
+  var key = 'vt_seen_release', version = card.getAttribute('data-version');
+  try { if (localStorage.getItem(key) === version) return; } catch (e) {}
+  card.hidden = false;
+  card.querySelector('[data-dismiss]').addEventListener('click', function () {
+    card.hidden = true;
+    try { localStorage.setItem(key, version); } catch (e) {}
+  });
+})();
 document.addEventListener('keydown', function (e) {
   var menu = document.querySelector('details.menu[open]');
   if (e.key === 'Escape' && menu) { menu.removeAttribute('open'); menu.querySelector('summary').focus(); }
@@ -517,6 +543,7 @@ const ICONS = {
   'arrow-left': '<path d="M16 10H4M8.5 5.5 4 10l4.5 4.5"/>',
   'arrow-right': '<path d="M4 10h12M11.5 5.5 16 10l-4.5 4.5"/>',
   'chevron-down': '<path d="M5.5 8 10 12.5 14.5 8"/>',
+  x: '<path d="M5.5 5.5l9 9M14.5 5.5l-9 9"/>',
   copy: '<rect x="7" y="7" width="9.5" height="9.5" rx="2"/><path d="M13 7V5a1.5 1.5 0 0 0-1.5-1.5h-6A1.5 1.5 0 0 0 4 5v6a1.5 1.5 0 0 0 1.5 1.5H7"/>',
   check: '<path d="M4 10.5 8 14.5 16 6"/>',
   plus: '<path d="M10 4v12M4 10h12"/>',

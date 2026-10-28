@@ -123,6 +123,7 @@ shape in the top bar, the footer, notices and the favicon.
 | `.split` `.mini` | short ranked lists side by side |
 | `.trio` | three short facts in a row |
 | `.foot` | footer |
+| `.whats-new` `.wn-h` `.wn-notes` | the corner card announcing a CLI release, for two weeks from `releasedAt` in `server/src/release.ts`. Dismissed per version in the browser; on phones it drops the install command |
 
 If a new page needs something that is not here, add it to `SITE_CSS` with
 tokens, and add a row to this table.

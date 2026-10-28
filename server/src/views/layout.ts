@@ -1,4 +1,5 @@
 import type { Theme, Viewer } from '../web-session.js';
+import { CLI_RECOMMENDED } from '../release.js';
 import { COPY_SCRIPT_URL, FONT_URL, SITE_CSS_URL, gem, icon } from './style.js';
 
 // A crew keeps the same shade everywhere it appears, so it reads as one thing
@@ -127,6 +128,24 @@ export function renderNav(place: NavPlace, ctx: NavContext): string {
   </div></nav>`;
 }
 
+const WHATS_NEW_DAYS = 14;
+
+// Shown to every visitor, signed in or not: most people who run the CLI never
+// sign in on the site. It starts hidden and the site script reveals it unless
+// this version was dismissed in this browser, so without the script it stays
+// out of the way, and a cached page needs no cookie to vary on.
+function whatsNew(now = new Date()): string {
+  const { version, reason, releasedAt } = CLI_RECOMMENDED;
+  if (now.getTime() - Date.parse(releasedAt) > WHATS_NEW_DAYS * 86400e3) return '';
+  const v = escapeHtml(version);
+  return `<aside class="whats-new" id="whats-new" data-version="${v}" aria-label="vibe ${v} is out" hidden>
+  <div class="wn-h"><b>vibe ${v} is out</b><button class="btn btn-ghost btn-sm btn-icon" type="button" data-dismiss aria-label="dismiss">${icon('x')}</button></div>
+  <p>${escapeHtml(reason)}.</p>
+  ${command(['npm i -g vibetime-cli'])}
+  <a class="wn-notes" href="https://github.com/iamnotstatic/vibetime/releases/tag/v${v}">release notes</a>
+</aside>`;
+}
+
 const FOOTER = `<footer class="foot"><div class="wrap foot-in">
   <span class="foot-brand">${gem(14)}vibetime · open source, MIT</span>
   <span class="foot-links"><a href="https://github.com/iamnotstatic/vibetime">${icon('github')}github</a><code>npm i -g vibetime-cli</code></span>
@@ -162,6 +181,7 @@ ${renderNav(place, nav)}
 ${body}
 </main>
 ${FOOTER}
+${whatsNew()}
 </body>
 </html>`;
 }
